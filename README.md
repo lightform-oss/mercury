@@ -2,6 +2,11 @@
 
 [![](https://www.cloud.lightform.com/img/Wordmark%20Black.svg)](https://lightform.com/)
 
+[![Travis (.com)](https://img.shields.io/travis/com/lightform-oss/mercury?style=for-the-badge)](https://travis-ci.com/lightform-oss/mercury)
+[![Codacy grade](https://img.shields.io/codacy/grade/125cc8f2617c41a5b8730c6818af3640?style=for-the-badge)](https://app.codacy.com/manual/lightform/mercury)
+[![GitHub](https://img.shields.io/github/license/lightform-oss/mercury?style=for-the-badge)](LICENCE.txt)
+[![Maven Central](https://img.shields.io/maven-central/v/org.lightform/mercury_2.13?style=for-the-badge)](https://mvnrepository.com/artifact/com.lightform/mercury)
+
 A modular [JSON-RPC 2.0](https://www.jsonrpc.org/specification) library that allows pluggable transport layers, JSON libraries, and effect/async monads.  
 Developed at [Lightform](https://lightform.com/) to communicate with embedded devices where the device is acting in the server role.
 
@@ -26,4 +31,3 @@ Feel free to open an issue with questions.
 ## Currently supported JSON libraries
 
 * [Play JSON](play-json)
-

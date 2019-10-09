@@ -32,21 +32,23 @@ object ServerExample extends App {
 
   val helper = AkkaStreamClientServer.handlerHelper[JsValue, Unit]
 
-  val listPets = helper.transaction(ListPets)(
+  val listPetsHandler = helper.transaction(ListPets)(
     (p, _, _) =>
       petServer
         .listPets(p.limit)
         .map(_.toRight(ExpectedError(100, "pets busy", None)))
   )
-  val createPet = helper.transaction(CreatePet)(
+  val createPetHandler = helper.transaction(CreatePet)(
     (p, _, _) => petServer.createPet(p.newPetName, p.newPetTag).map(Right(_))
   )
-  val getPet = helper.transaction(GetPet)(
+  val getPetHandler = helper.transaction(GetPet)(
     (p, _, _) =>
       petServer
         .getPet(p.petId)
         .map(_.toRight(ExpectedError(404, "no such pet", None)))
   )
+
+  val handlers = Seq(listPetsHandler, createPetHandler, getPetHandler)
 
   val parallelism = 50
   val timeout = 5 seconds
@@ -54,7 +56,7 @@ object ServerExample extends App {
   val petFlow = websocketFlow(
     AkkaStreamClientServer(
       (),
-      Seq(listPets, createPet, getPet),
+      handlers,
       parallelism = parallelism,
       requestTimeout = timeout
     ).flow,
@@ -62,7 +64,7 @@ object ServerExample extends App {
     timeout
   )
 
-  val requestHandler: HttpRequest => HttpResponse = {
+  val requestUpgrade: HttpRequest => HttpResponse = {
     case req @ HttpRequest(HttpMethods.GET, _, _, _, _) =>
       req.header[UpgradeToWebSocket] match {
         case Some(upgrade) => upgrade.handleMessages(petFlow)
@@ -72,7 +74,7 @@ object ServerExample extends App {
   }
 
   val bindingFuture =
-    Http().bindAndHandleSync(requestHandler, "localhost", 8080)
+    Http().bindAndHandleSync(requestUpgrade, "localhost", 8080)
 
   println(s"Server online at ws://localhost:8080/\nPress RETURN to stop...")
   StdIn.readLine() // let it run until user presses return

@@ -8,6 +8,7 @@ A client can be obtained with
 
 ```scala
 val eventualClient: Future[PahoMqttClient[MyJson]] = PahoMqttClient[MyJson](brokerUri, clientId, timeout, connectionOptions)
+val client = Await(eventualClient, Duration.Inf)
 ```
 
 Note that a future is returned, the future completes once the connection to the MQTT broker is successfully established.

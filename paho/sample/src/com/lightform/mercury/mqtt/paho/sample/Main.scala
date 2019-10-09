@@ -50,24 +50,26 @@ object ServerExample extends App {
       connectionOptions
     )
 
-  val listPets = help.transaction(ListPets)(
+  val listPetsHandler = help.transaction(ListPets)(
     (p, _, _) =>
       petServer
         .listPets(p.limit)
         .map(_.toRight(ExpectedError(100, "pets busy", None)))
   )
-  val createPet = help.transaction(CreatePet)(
+  val createPetHandler = help.transaction(CreatePet)(
     (p, _, _) => petServer.createPet(p.newPetName, p.newPetTag).map(Right(_))
   )
-  val getPet = help.transaction(GetPet)(
+  val getPetHandler = help.transaction(GetPet)(
     (p, _, _) =>
       petServer
         .getPet(p.petId)
         .map(_.toRight(ExpectedError(404, "no such pet", None)))
   )
 
+  val handlers = Seq(listPetsHandler, createPetHandler, getPetHandler)
+
   Await.result(
-    serverBuilder(Seq(listPets, createPet, getPet)).flatMap(_.start),
+    serverBuilder(handlers).flatMap(_.start),
     Duration.Inf
   )
 }
