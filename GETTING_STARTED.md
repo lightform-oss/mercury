@@ -58,7 +58,7 @@ With Circe it's even easier, you don't have to do anything in full auto mode.
 ## Client
 
 Setting up the client varies with what transport layer you're using. 
-Check out the documentation for your client/transport layer for more details (for example, [here](paho/README.MD)).  
+Check out the documentation for your client/transport layer for more details (for example, [here](paho/README.md)).  
 
 For the simplest transports (one to one bidirectional connections like websockets) implementing `PureTransport`, you just need do do whatever the transport requires in order to establish a connection.  
 For more complicated transports (like MQTT or HTTP) you need to define a `ClientTransportRequestHint` (which gives the client any transport-specific information it needs to know in order to send the request) and a `ClientTransportResponseHint` (which gives the client transport-specific information it might need on how to retreive the response).
@@ -74,7 +74,7 @@ val notification: F[Unit] = client.notify(SendLove(1))
 ## Server
 
 Setting up the server varies with what transport layer you're using. 
-Check out the documentation for your server/transport layer for more details (for example, [here](paho/README.MD)).  
+Check out the documentation for your server/transport layer for more details (for example, [here](paho/README.md)).  
 
 The essential part of setting up the server is defining request handlers. 
 Handlers are either of type `IdHandler` for requests that need responses, 

@@ -13,9 +13,9 @@ This project has the following guiding goals:
 * Be practical when transport layer details leak (eg. user ID from HTTP auth request header needs to be available to logic code but isn't in the params section of the request)
 * Be usable without code generation (especially client), although we hope to eventually support code generation.
 
-## [Getting Started](GETTING_STARTED.MD)
+## [Getting Started](GETTING_STARTED.md)
 
-If something you're looking for isn't listed below, click [here](CONTRIBUTING.MD)!  
+If something you're looking for isn't listed below, click [here](CONTRIBUTING.md)!  
 Feel free to open an issue with questions.
 
 ## Currently supported transports
