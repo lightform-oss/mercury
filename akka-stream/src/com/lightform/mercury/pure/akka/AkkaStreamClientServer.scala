@@ -1,0 +1,184 @@
+package com.lightform.mercury.pure.akka
+
+import akka.stream.QueueOfferResult.{Dropped, QueueClosed}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.{Materializer, OverflowStrategy}
+import cats.implicits._
+import com.lightform.mercury.json.{JsonSupport, Reader}
+import com.lightform.mercury.pure.akka.AkkaStreamClientServer.ncores
+import com.lightform.mercury.util.{Timer, generateId}
+import com.lightform.mercury._
+import com.typesafe.scalalogging.LazyLogging
+import scala.collection.immutable.IndexedSeq
+
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.language.postfixOps
+import scala.util.{Failure, Success}
+
+class AkkaStreamClientServer[Json, CCtx](
+    connectionContext: CCtx,
+    theHandlers: Seq[Handler[Future, Json, Unit, CCtx, Unit]],
+    parallelism: Int = ncores * 3,
+    bufferSize: Int,
+    requestTimeout: FiniteDuration
+)(
+    implicit ec: ExecutionContext,
+    mat: Materializer,
+    jsonSupport: JsonSupport[Json]
+) extends Server[Future, Json, Unit, CCtx, Unit]
+    with Client[Future, Json]
+    with PureTransport[Future, Json]
+    with LazyLogging {
+
+  import jsonSupport._
+
+  val handlers = theHandlers
+
+  private val incoming = Sink.foreachAsync(parallelism)(onMessageReceived)
+
+  private val (outQueue, outSource) = Source
+    .queue[Json](bufferSize, OverflowStrategy.backpressure)
+    .mapAsync(ncores)(json => Future(stringify(json)))
+    .preMaterialize()
+
+  private val responseCompletions =
+    TrieMap.empty[Either[String, Long], ResponseCompletion[Json, _, _, _]]
+
+  val flow = Flow.fromSinkAndSourceMat(incoming, outSource)(Keep.left)
+
+  def transact[P, E, R](params: P)(
+      implicit method: IdMethodDefinition.Aux[P, E, R],
+      paramWriter: JsonWriter[P],
+      resultReader: JsonReader[R],
+      errorReader: JsonReader[E]
+  ): Future[Either[Error[E], R]] = {
+    val completion = ResponseCompletion(method, Promise[Response[E, R]])
+    val id = generateId
+    responseCompletions.put(id, completion)
+    val request = Request(method.method, params, Some(id))
+    val requestJson = requestWriter[P].writeSome(request)
+    enqueue(requestJson)
+    Timer.schedule(requestTimeout)(responseCompletions.remove(id))
+    Timer.withTimeout(completion.promise.future.map(_.toEither), requestTimeout)
+  }
+
+  def notify[P](params: P)(
+      implicit method: NotificationMethodDefinition[P],
+      paramWriter: JsonWriter[P]
+  ) = {
+    val request = Request(method.method, params, None)
+    val requestJson = requestWriter[P].writeSome(request)
+    enqueue(requestJson)
+  }
+
+  private def onMessageReceived(jsonString: IndexedSeq[Byte]): Future[Unit] =
+    parse(jsonString) match {
+      case Success(json) if jsonIsResponse(json) => onResponseReceived(json)
+      case Success(json)                         => onRequestReceived(json)
+      case Failure(e) =>
+        val response = ErrorResponse(
+          UnexpectedError.fromData(-32700, "Parse error", e.getMessage),
+          None
+        )
+
+        val responseJson = responseWriter[String, Nothing].writeSome(response)
+
+        enqueue(responseJson)
+    }
+
+  private def onRequestReceived(json: Json) =
+    handle(json, connectionContext, ())
+      .flatMap {
+        case Some((json, _)) => enqueue(json)
+        case None            => Future.successful(())
+      }
+
+  private def onResponseReceived(json: Json) = {
+    val maybeId = idLens(json)
+    if (maybeId.isEmpty) {
+      logger.warn(s"Received response with no id: $json")
+    }
+
+    val maybeCompletion = maybeId.flatMap { id =>
+      val maybeComp = responseCompletions.get(id)
+      if (maybeComp.isEmpty) {
+        logger.info(
+          s"Received response with id ${id.idToString} for a message that wasn't sent (or had timed out)"
+        )
+      }
+      maybeComp.map(id -> _)
+    }
+
+    maybeCompletion
+      .map {
+        case (id, c) =>
+          c.responseReader.read(json) match {
+            case Success(response)  => c.complete(response)
+            case Failure(exception) => c.promise.failure(exception)
+          }
+          responseCompletions.remove(id)
+          c.promise.future
+            .map(_ => ())
+      }
+      .getOrElse(Future.successful(()))
+  }
+
+  private def enqueue(json: Json) =
+    outQueue
+      .offer(json)
+      .andThen {
+        case Success(e @ (Dropped | QueueClosed)) =>
+          logger.error(
+            s"Unable to send request or response because $e. You may need to increase bufferSize."
+          )
+      }
+      .map(_ => ())
+
+  val start = Future.successful(())
+}
+
+object AkkaStreamClientServer {
+
+  private val ncores = Runtime.getRuntime.availableProcessors
+
+  def apply[Json: JsonSupport, CCtx](
+      connectionContext: CCtx,
+      handlers: Seq[Handler[Future, Json, Unit, CCtx, Unit]],
+      parallelism: Int = ncores * 3,
+      bufferSize: Int = 300,
+      requestTimeout: FiniteDuration = 5 seconds
+  )(
+      implicit ec: ExecutionContext,
+      mat: Materializer
+  ) =
+    new AkkaStreamClientServer[Json, CCtx](
+      connectionContext,
+      handlers,
+      parallelism,
+      bufferSize,
+      requestTimeout
+    )
+
+  def handlerHelper[Json: JsonSupport, CCtx](implicit ec: ExecutionContext) =
+    new HandlerHelper[Future, Json, Unit, CCtx, Unit]
+}
+
+private case class ResponseCompletion[Json, P, E, R](
+    method: IdMethodDefinition.Aux[P, E, R],
+    promise: Promise[Response[E, R]]
+)(
+    implicit val resultReader: Reader[Json, R],
+    val errorReader: Reader[Json, E]
+) {
+  type Error = E
+  type Result = R
+
+  def responseReader(
+      implicit jsonSupport: JsonSupport[Json]
+  ): jsonSupport.JsonReader[Response[Error, Result]] =
+    jsonSupport.responseReader[Error, Result]
+
+  def complete(response: Response[Error, Result]) = promise.success(response)
+}
