@@ -10,6 +10,6 @@ PUBLISH_VERSION=$TRAVIS_TAG mill -i  mill.scalalib.PublishModule/publishAll \
 	--sonatypeCreds $SONATYPE_NAME:$SONATYPE_PW \
 	--gpgPassphrase $GPG_PW \
 	--publishArtifacts __.publishArtifacts \
-	--release false
+	--release true
 
 set +xeu
