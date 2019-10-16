@@ -7,6 +7,13 @@ script:
   - ./mill __.compile
   - ./mill __.test
 
+deploy:
+  skip_cleanup: true
+  provider: script
+  script: ci/deploy.sh
+  on:
+    tags: true
+
 cache:
   directories:
     - $HOME/.coursier
