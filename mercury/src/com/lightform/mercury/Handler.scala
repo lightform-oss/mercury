@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success}
 
-sealed trait Handler[F[_], Json, Hint, CCtx, RCtx] {
+sealed trait Handler[F[_], Json, CCtx, RCtx] {
   def method: MethodDefinition[_]
 
   def handle(
@@ -18,13 +18,13 @@ sealed trait Handler[F[_], Json, Hint, CCtx, RCtx] {
   ): F[Option[Response[Option[Json], Json]]]
 }
 
-class NotificationHandler[F[_], P, Json, Hint, ConnectionCtx, RequestCtx](
+class NotificationHandler[F[_], P, Json, ConnectionCtx, RequestCtx](
     val method: NotificationMethodDefinition[P]
 )(flow: (P, ConnectionCtx, RequestCtx) => F[Unit])(
     implicit
     M: MonadError[F, Throwable],
     paramReader: Reader[Json, P]
-) extends Handler[F, Json, Hint, ConnectionCtx, RequestCtx]
+) extends Handler[F, Json, ConnectionCtx, RequestCtx]
     with LazyLogging {
 
   def handle(
@@ -48,7 +48,7 @@ class NotificationHandler[F[_], P, Json, Hint, ConnectionCtx, RequestCtx](
   }
 }
 
-class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, Hint, ConnectionCtx, RequestCtx](
+class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, ConnectionCtx, RequestCtx](
     val method: D
 )(
     flow: (
@@ -61,7 +61,7 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, Hint, Connect
     errorDataWriter: Writer[Json, D#ErrorData],
     resultWriter: NonAbsentWriter[Json, D#Result],
     jsonSupport: JsonSupport[Json]
-) extends Handler[F, Json, Hint, ConnectionCtx, RequestCtx] {
+) extends Handler[F, Json, ConnectionCtx, RequestCtx] {
 
   import jsonSupport._
 
@@ -109,7 +109,7 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, Hint, Connect
     ).fold(identity, identity)
 }
 
-class HandlerHelper[F[_]: Monad: Applicative, Json: JsonSupport, Hint: ServerTransportHint, ConnectionCtx, RequestCtx] {
+class HandlerHelper[F[_]: Monad: Applicative, Json: JsonSupport, ConnectionCtx, RequestCtx] {
   def transaction[P](method: IdMethodDefinition[P])(
       flow: (
           P,
@@ -121,7 +121,7 @@ class HandlerHelper[F[_]: Monad: Applicative, Json: JsonSupport, Hint: ServerTra
       errorDataWriter: Writer[Json, method.ErrorData],
       resultWriter: NonAbsentWriter[Json, method.Result]
   ) =
-    new IdHandler[F, P, method.type, Json, Hint, ConnectionCtx, RequestCtx](
+    new IdHandler[F, P, method.type, Json, ConnectionCtx, RequestCtx](
       method
     )(flow)
 
@@ -131,7 +131,7 @@ class HandlerHelper[F[_]: Monad: Applicative, Json: JsonSupport, Hint: ServerTra
       implicit M: MonadError[F, Throwable],
       paramReader: Reader[Json, P]
   ) =
-    new NotificationHandler[F, P, Json, Hint, ConnectionCtx, RequestCtx](
+    new NotificationHandler[F, P, Json, ConnectionCtx, RequestCtx](
       method
     )(
       flow

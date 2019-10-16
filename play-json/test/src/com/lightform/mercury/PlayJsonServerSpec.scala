@@ -1,8 +1,8 @@
-package com.lightform.mercury.json.playjson
+package com.lightform.mercury
 
-import com.lightform.mercury.ServerSpec
 import com.lightform.mercury.ServerSpec.HelloRequest
 import com.lightform.mercury.json.Reader
+import com.lightform.mercury.json.playjson._
 import play.api.libs.json.{JsValue, Json}
 
 class PlayJsonServerSpec extends ServerSpec[JsValue] {

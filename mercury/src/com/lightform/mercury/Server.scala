@@ -30,7 +30,7 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
 
   import jsonSupport._
 
-  protected def handlers: Seq[Handler[F, Json, Hint, CCtx, RCtx]]
+  protected def handlers: Seq[Handler[F, Json, CCtx, RCtx]]
 
   protected lazy val _handlers =
     handlers.map(h => h.method.method -> h).toMap
@@ -156,5 +156,5 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
       )
       .merge
 
-  def start: F[Unit]
+  def start: Any
 }
