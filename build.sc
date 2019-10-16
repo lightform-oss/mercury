@@ -123,6 +123,24 @@ class AkkaStreamModule(val crossScalaVersion: String) extends BaseModule with Pu
   }
 }
 
+object `akka-http` extends Cross[AkkaHttpModule](`2.12`, `2.13`)
+class AkkaHttpModule(val crossScalaVersion: String) extends BaseModule with PublishModule {
+
+  def artifactName = s"${mercury(crossScalaVersion).artifactName()}-${super.artifactName()}"
+  def pomSettings = mercury(crossScalaVersion)
+    .pomSettings()
+    .copy(description = "HTTP transport for Lightform mercury with Akka HTTP")
+
+  def moduleDeps = Seq(mercury(crossScalaVersion))
+  def compileIvyDeps = Agg(Dep.akkaStream)
+  def ivyDeps = Agg(Dep.akkaHttp)
+
+  object sample extends SampleModule {
+    def moduleDeps = Seq(`akka-http`(`2.13`), sampleRef)
+    def ivyDeps = Agg(Dep.akkaStream)
+  }
+}
+
 def sampleRef = sample
 object sample extends SampleModule {
 

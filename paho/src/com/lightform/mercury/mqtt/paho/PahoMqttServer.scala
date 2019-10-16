@@ -24,7 +24,7 @@ class PahoMqttServer[Json] private (
     qos: Int,
     paho: IMqttAsyncClient,
     protected val handlers: Seq[
-      Handler[Future, Json, MqttMessageCtx, Unit, MqttMessageCtx]
+      Handler[Future, Json, Unit, MqttMessageCtx]
     ]
 )(
     implicit ec: ExecutionContext,
@@ -71,9 +71,9 @@ object PahoMqttServer {
       transportHint: ServerTransportHint[MqttMessageCtx]
   ) = {
     (
-      new HandlerHelper[Future, Json, MqttMessageCtx, Unit, MqttMessageCtx],
+      new HandlerHelper[Future, Json, Unit, MqttMessageCtx],
       (handlers: Seq[
-        Handler[Future, Json, MqttMessageCtx, Unit, MqttMessageCtx]
+        Handler[Future, Json, Unit, MqttMessageCtx]
       ]) =>
         pahoClient(broker, clientId, connectionOptions)
           .map(

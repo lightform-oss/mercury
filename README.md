@@ -25,7 +25,8 @@ Feel free to open an issue with questions.
 
 ## Currently supported transports
 
-* [Akka Streams](akka-stream) (WebSockets, TCP with message framing, etc)
+* [Streams](akka-stream) (WebSockets, TCP with message framing, etc)
+* [HTTP](akka-http)
 * [MQTT](paho)
 
 ## Currently supported JSON libraries

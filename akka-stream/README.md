@@ -17,7 +17,7 @@ The server will be started when a stream is materialized with the flow.
 
 ```scala
 val helper = AkkaStreamClientServer.handlerHelper[YourJson, Unit]
-val handlers: Seq[Handler[Future, YourJson, Unit, Unit, Unit]] = ???
+val handlers: Seq[Handler[Future, YourJson, Unit, Unit]] = ???
 
 val flow: Flow[String, String, Future[Done]] = AkkaStreamClientServer((), handlers).flow
 ```

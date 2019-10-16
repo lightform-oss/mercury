@@ -1,13 +1,6 @@
 package com.lightform.mercury.sample
 
 import cats.implicits._
-import com.lightform.mercury.{
-  ClientTransportRequestHint,
-  ClientTransportResponseHint,
-  ServerTransportHint
-}
-import com.lightform.mercury.json.playjson.PlayJsonSupport
-import com.typesafe.scalalogging.LazyLogging
 import com.lightform.mercury.json.playjson._
 import com.lightform.mercury.mqtt.paho._
 import com.lightform.mercury.{
@@ -16,6 +9,7 @@ import com.lightform.mercury.{
   ServerTransportHint,
   _
 }
+import com.typesafe.scalalogging.LazyLogging
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import play.api.libs.json.JsValue
 

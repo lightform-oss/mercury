@@ -87,14 +87,31 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
     )
 
   def exErrorReads[E: Reads] = Json.reads[ExpectedError[E]]
-  val uxErrorReads = Json.reads[UnexpectedError]
+  val uxErrorReads = Reads(
+    js =>
+      for {
+        code <- (js \ "code").validate[Int]
+        message <- (js \ "message").validate[String]
+        dataJs <- (js \ "data").validateOpt[JsValue]
+      } yield UnexpectedError(
+        code,
+        message,
+        dataJs.map(PlayJsonSupport.stringify)
+      )
+  )
 
   implicit def errorReads[E: Reads]: Reads[Error[E]] =
     json => exErrorReads[E].reads(json).orElse(uxErrorReads.reads(json))
 
   implicit def errorWrites[E: Writes]: Writes[Error[E]] = {
     case e: ExpectedError[E] => Json.writes[ExpectedError[E]].writes(e)
-    case e: UnexpectedError  => Json.writes[UnexpectedError].writes(e)
+    case e: UnexpectedError =>
+      val data = e.data.map(PlayJsonSupport.parse).map(_.get)
+      Json.obj(
+        "code" -> e.code,
+        "message" -> e.message,
+        "data" -> data
+      )
   }
 
   def resultResponseReads[Result: Reads] =

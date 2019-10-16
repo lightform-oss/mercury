@@ -1,8 +1,5 @@
 language: scala
 
-install:
-  - curl -L https://github.com/lihaoyi/mill/releases/download/0.5.1/0.5.1 > mill && chmod +x mill
-
 script:
   - ./mill __.compile
   - ./mill __.test

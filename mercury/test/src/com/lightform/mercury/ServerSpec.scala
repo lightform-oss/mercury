@@ -33,7 +33,7 @@ trait ServerSpec[Json]
 
   def emptyObject: Json
 
-  val helper = new HandlerHelper[Future, Json, Unit, Unit, Unit]
+  val helper = new HandlerHelper[Future, Json, Unit, Unit]
 
   val helloHandler = helper.transaction(HelloRequest)(
     (req, _, _) => Future.successful(Right(s"Hello ${req.name}!"))

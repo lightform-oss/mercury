@@ -19,7 +19,7 @@ import scala.util.{Failure, Success}
 
 class AkkaStreamClientServer[Json, CCtx](
     connectionContext: CCtx,
-    theHandlers: Seq[Handler[Future, Json, Unit, CCtx, Unit]],
+    theHandlers: Seq[Handler[Future, Json, CCtx, Unit]],
     parallelism: Int = ncores * 3,
     bufferSize: Int,
     requestTimeout: FiniteDuration
@@ -136,7 +136,10 @@ class AkkaStreamClientServer[Json, CCtx](
       }
       .map(_ => ())
 
-  val start = Future.successful(())
+  def start =
+    throw new NotImplementedError(
+      "The akka stream transport cannot be started, you need to materialize a stream that uses the provided flow."
+    )
 }
 
 object AkkaStreamClientServer {
@@ -145,7 +148,7 @@ object AkkaStreamClientServer {
 
   def apply[Json: JsonSupport, CCtx](
       connectionContext: CCtx,
-      handlers: Seq[Handler[Future, Json, Unit, CCtx, Unit]],
+      handlers: Seq[Handler[Future, Json, CCtx, Unit]],
       parallelism: Int = ncores * 3,
       bufferSize: Int = 300,
       requestTimeout: FiniteDuration = 5 seconds
@@ -162,7 +165,7 @@ object AkkaStreamClientServer {
     )
 
   def handlerHelper[Json: JsonSupport, CCtx](implicit ec: ExecutionContext) =
-    new HandlerHelper[Future, Json, Unit, CCtx, Unit]
+    new HandlerHelper[Future, Json, CCtx, Unit]
 }
 
 private case class ResponseCompletion[Json, P, E, R](
