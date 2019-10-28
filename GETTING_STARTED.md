@@ -99,3 +99,18 @@ val sendLoveHandler = helper.notification(SendLove)(
     // The exact type of F depends on the server implementation. It could be a Future, or an IO monad, etc.
 )
 ```
+
+### Middleware
+
+For cross cutting concerns like logging and authentication you can provide a middleware function which can observe, modify, or short circuit requests and responses.
+This middleware function is usually passed to your server when it is created. 
+
+For example, logging middleware might look like this
+
+```scala
+def loggingMiddleware[F[_], Json]: Middleware[F, Json, Any, Any] = {
+  case ((request, cctx, rctx), inner) =>
+    println(s"[info] ${OffsetDateTime.now()} - got request method: ${request.method} id: ${request.id}")
+    inner(request, cctx, rctx)
+}
+```
