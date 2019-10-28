@@ -4,13 +4,14 @@ import akka.stream.QueueOfferResult.{Dropped, QueueClosed}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
 import cats.implicits._
+import com.lightform.mercury.Server.Middleware
 import com.lightform.mercury.json.{JsonSupport, Reader}
 import com.lightform.mercury.pure.akka.AkkaStreamClientServer.ncores
 import com.lightform.mercury.util.{Timer, generateId}
 import com.lightform.mercury._
 import com.typesafe.scalalogging.LazyLogging
-import scala.collection.immutable.IndexedSeq
 
+import scala.collection.immutable.{IndexedSeq, Seq}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -19,7 +20,10 @@ import scala.util.{Failure, Success}
 
 class AkkaStreamClientServer[Json, CCtx](
     connectionContext: CCtx,
-    theHandlers: Seq[Handler[Future, Json, CCtx, Unit]],
+    protected val handlers: Seq[Handler[Future, Json, CCtx, Unit]],
+    override protected val middleware: Seq[
+      Middleware[Future, Json, CCtx, Unit]
+    ] = Nil,
     parallelism: Int = ncores * 3,
     bufferSize: Int,
     requestTimeout: FiniteDuration
@@ -33,8 +37,6 @@ class AkkaStreamClientServer[Json, CCtx](
     with LazyLogging {
 
   import jsonSupport._
-
-  val handlers = theHandlers
 
   private val incoming = Sink.foreachAsync(parallelism)(onMessageReceived)
 
@@ -149,6 +151,7 @@ object AkkaStreamClientServer {
   def apply[Json: JsonSupport, CCtx](
       connectionContext: CCtx,
       handlers: Seq[Handler[Future, Json, CCtx, Unit]],
+      middleware: Seq[Middleware[Future, Json, CCtx, Unit]] = Nil,
       parallelism: Int = ncores * 3,
       bufferSize: Int = 300,
       requestTimeout: FiniteDuration = 5 seconds
@@ -159,6 +162,7 @@ object AkkaStreamClientServer {
     new AkkaStreamClientServer[Json, CCtx](
       connectionContext,
       handlers,
+      middleware,
       parallelism,
       bufferSize,
       requestTimeout

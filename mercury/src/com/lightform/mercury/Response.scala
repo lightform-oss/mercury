@@ -61,7 +61,7 @@ class UnexpectedErrorDataExtractor[Json] private[mercury] (
 case class UnexpectedError(
     code: Int,
     message: String,
-    data: Option[IndexedSeq[Byte]]
+    data: Option[IndexedSeq[Byte]] = None
 ) extends Exception(s"$code: $message")
     with Error[Nothing] {
   val expectedData = None

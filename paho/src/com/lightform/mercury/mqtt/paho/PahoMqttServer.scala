@@ -1,6 +1,7 @@
 package com.lightform.mercury.mqtt.paho
 
 import cats.implicits._
+import com.lightform.mercury.Server.Middleware
 import com.lightform.mercury.json._
 import com.lightform.mercury.{
   Handler,
@@ -16,6 +17,7 @@ import org.eclipse.paho.client.mqttv3.{
   MqttMessage
 }
 
+import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -25,7 +27,10 @@ class PahoMqttServer[Json] private (
     paho: IMqttAsyncClient,
     protected val handlers: Seq[
       Handler[Future, Json, Unit, MqttMessageCtx]
-    ]
+    ],
+    override protected val middleware: Seq[
+      Middleware[Future, Json, Unit, MqttMessageCtx]
+    ] = Nil
 )(
     implicit ec: ExecutionContext,
     jsonSupport: JsonSupport[Json],
