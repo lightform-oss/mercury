@@ -2,10 +2,11 @@ package com.lightform.mercury
 
 import cats.Applicative
 import cats.implicits._
+import com.lightform.mercury.Server.Middleware
 import com.lightform.mercury.json.JsonSupport
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.collection.immutable.IndexedSeq
+import scala.collection.immutable._
 
 trait ServerTransportHint[A] {
 
@@ -31,6 +32,15 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
   import jsonSupport._
 
   protected def handlers: Seq[Handler[F, Json, CCtx, RCtx]]
+
+  protected def middleware: Seq[Middleware[F, Json, CCtx, RCtx]] = Nil
+
+  private lazy val _middleware: Middleware[F, Json, CCtx, RCtx] =
+    middleware
+      .reduceOption(
+        (a, b) => (tup, inner) => a(tup, { case r => b(r, inner) })
+      )
+      .getOrElse((tup, inner) => inner.tupled(tup))
 
   protected lazy val _handlers =
     handlers.map(h => h.method.method -> h).toMap
@@ -74,16 +84,23 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
     val errorOrResult = for {
       request <- errorOrRequest
       handler <- errorOrHandler
-      result <- Right(handler.handle(request, connectionCtx, requestCtx))
+      result <- Right(
+        _middleware((request, connectionCtx, requestCtx), handler.handle)
+      )
+      logError = (e: Throwable) =>
+        logger.error(
+          s"Exception in handler for ${handler.method.method} " +
+            s"for${request.id.map(_ => "").getOrElse(" notification")} " +
+            s"request ${request.id.map(_.idToString).getOrElse("")}",
+          e
+        )
     } yield result
       .recover {
+        case e: UnexpectedError =>
+          logError(e)
+          Some(ErrorResponse(e, request.id))
         case e =>
-          logger.error(
-            s"Exception in handler for ${handler.method.method} " +
-              s"for${request.id.map(_ => "").getOrElse(" notification")} " +
-              s"request ${request.id.map(_.idToString).getOrElse("")}",
-            e
-          )
+          logError(e)
 
           request.id.map(
             id =>
@@ -157,4 +174,11 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
       .merge
 
   def start: Any
+}
+
+object Server {
+  type Middleware[F[_], Json, CCtx, RCtx] = (
+      (Request[Json], CCtx, RCtx),
+      (Request[Json], CCtx, RCtx) => F[Option[Response[Option[Json], Json]]]
+  ) => F[Option[Response[Option[Json], Json]]]
 }

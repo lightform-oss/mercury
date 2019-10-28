@@ -5,15 +5,15 @@ import com.lightform.mercury.ServerSpec.{
   HelloDie,
   HelloDieWorse,
   HelloRequest,
+  MiddlewareRequest,
   TestNotification
 }
 import com.lightform.mercury.json.{JsonSupport, Reader, Writer}
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.util.{Random, Success}
+import scala.collection.immutable.Seq
+import scala.util.{Failure, Random, Success, Try}
 
 trait ServerSpec[Json]
     extends WordSpec
@@ -30,18 +30,21 @@ trait ServerSpec[Json]
   implicit val testNotificationReader = Reader[Json, TestNotification](
     _ => Success(TestNotification())
   )
+  implicit def middlewareNotificationReader: Reader[Json, MiddlewareRequest]
+
+  def appendNumToValsField(i: Int, json: Json): Json
 
   def emptyObject: Json
 
-  val helper = new HandlerHelper[Future, Json, Unit, Unit]
+  val helper = new HandlerHelper[Try, Json, Unit, Unit]
 
   val helloHandler = helper.transaction(HelloRequest)(
-    (req, _, _) => Future.successful(Right(s"Hello ${req.name}!"))
+    (req, _, _) => Success(Right(s"Hello ${req.name}!"))
   )
 
   val dieHandler =
     helper.transaction(HelloDie)(
-      (_, _, _) => Future.failed(new Exception("Boom"))
+      (_, _, _) => Failure(new Exception("Boom"))
     )
   val dieWorseHandler =
     helper.transaction(HelloDieWorse)(
@@ -57,7 +60,7 @@ trait ServerSpec[Json]
       val garbage = new Array[Byte](200)
       Random.nextBytes(garbage)
       val (json, _) =
-        server._handle(garbage.toIndexedSeq, (), ()).futureValue.value
+        server._handle(garbage.toIndexedSeq, (), ()).success.value.value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
       response match {
@@ -69,7 +72,8 @@ trait ServerSpec[Json]
     "return -32600 on invalid JSON-RPC requests" in {
       val (json, _) = server
         ._handle(jsonSupport.stringify(emptyObject), (), ())
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
@@ -90,7 +94,8 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
@@ -113,7 +118,8 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
@@ -136,7 +142,8 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
@@ -163,7 +170,8 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, None.type].read(json).success.value
@@ -190,7 +198,8 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
         .value
       val response =
         jsonSupport.responseReader[String, String].read(json).success.value
@@ -206,7 +215,7 @@ trait ServerSpec[Json]
       var sideEffect = false
 
       val notificationHandler = helper.notification(TestNotification)(
-        (_, _, _) => Future { sideEffect = true }
+        (_, _, _) => Try { sideEffect = true }
       )
 
       val srv = new TestServer[Json](Seq(notificationHandler))
@@ -227,11 +236,58 @@ trait ServerSpec[Json]
           (),
           ()
         )
-        .futureValue
+        .success
+        .value
 
       maybe shouldEqual None
 
       sideEffect shouldEqual true
+    }
+  }
+
+  "Middleware" should {
+    "run in order" in {
+
+      val middlewareHandler = helper.notification(MiddlewareRequest) {
+        case (MiddlewareRequest(vals), _, _) =>
+          vals shouldEqual Seq(1, 2, 3)
+          Success(())
+      }
+
+      val server = new TestServer[Json](
+        Seq(middlewareHandler),
+        Seq(
+          {
+            case ((req, _, _), inner) =>
+              val newRequest =
+                req.copy(params = appendNumToValsField(1, req.params))
+              inner(newRequest, (), ())
+          }, {
+            case ((req, _, _), inner) =>
+              val newRequest =
+                req.copy(params = appendNumToValsField(2, req.params))
+              inner(newRequest, (), ())
+          }, {
+            case ((req, _, _), inner) =>
+              val newRequest =
+                req.copy(params = appendNumToValsField(3, req.params))
+              inner(newRequest, (), ())
+          }
+        )
+      )
+
+      server
+        ._handle(
+          jsonSupport.stringify(
+            jsonSupport
+              .requestWriter[Json]
+              .writeSome(Request(MiddlewareRequest.method, emptyObject, None))
+          ),
+          (),
+          ()
+        )
+        .success
+        .value
     }
   }
 }
@@ -264,5 +320,11 @@ object ServerSpec {
     type ErrorData = String
 
     val method = "dieWorse"
+  }
+
+  case class MiddlewareRequest(vals: Seq[Int])
+  implicit object MiddlewareRequest
+      extends NotificationMethodDefinition[MiddlewareRequest] {
+    def method: String = "middleware"
   }
 }

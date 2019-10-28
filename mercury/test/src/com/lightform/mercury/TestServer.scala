@@ -1,16 +1,16 @@
 package com.lightform.mercury
 
+import cats.implicits._
+import com.lightform.mercury.Server.Middleware
 import com.lightform.mercury.json.JsonSupport
 
-import scala.concurrent.{ExecutionContext, Future}
-import cats.implicits._
-
-import scala.collection.immutable.IndexedSeq
+import scala.collection.immutable.{IndexedSeq, Seq}
+import scala.util.{Success, Try}
 
 class TestServer[Json: JsonSupport](
-    val handlers: Seq[Handler[Future, Json, Unit, Unit]]
-)(implicit ec: ExecutionContext)
-    extends Server[Future, Json, Unit, Unit, Unit] {
+    val handlers: Seq[Handler[Try, Json, Unit, Unit]],
+    override val middleware: Seq[Middleware[Try, Json, Unit, Unit]] = Nil
+) extends Server[Try, Json, Unit, Unit, Unit] {
 
   def _handle(
       jsonString: IndexedSeq[Byte],
@@ -18,5 +18,5 @@ class TestServer[Json: JsonSupport](
       requestCtx: Unit
   ) = handle(jsonString, connectionCtx, requestCtx)
 
-  def start: Future[Unit] = Future.successful(())
+  def start: Try[Unit] = Success(())
 }

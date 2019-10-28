@@ -17,6 +17,7 @@ import akka.util.ByteString
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 import cats.implicits._
+import com.lightform.mercury.Server.Middleware
 import com.lightform.mercury.json.JsonSupport
 
 import scala.concurrent.duration._
@@ -29,10 +30,14 @@ import scala.concurrent.duration._
   *    this is useful over the first option when you want to configure TLS or other properties of akka.http.scaladsl.Http
   *
   * @param handlers
+  * @param middleware
   * @param timeout the duration that the server will wait for a request body to be sent from the client
   */
 class AkkaHttpServer[Json](
     protected val handlers: Seq[Handler[Future, Json, Unit, HttpRequest]],
+    protected override val middleware: Seq[
+      Middleware[Future, Json, Unit, HttpRequest]
+    ] = Nil,
     timeout: FiniteDuration = 5 seconds
 )(
     implicit hint: ServerTransportHint[(StatusCode, Seq[HttpHeader])],
