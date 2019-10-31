@@ -10,6 +10,13 @@ trait JsonSupport[Json] {
   type JsonWriter[A] = Writer[Json, A]
   type NAJsonWriter[A] = NonAbsentWriter[Json, A]
 
+  /**
+    * Used in case the transport cares about the type of bytes it's being given,
+    * for example in HTTP content type headers.
+    * @return the MIME type of this encoding, usually application/json
+    */
+  def mediaType: String
+
   implicit def stringWriter: NonAbsentWriter[Json, String]
   implicit def optionWriter[A](
       implicit writer: JsonWriter[A]

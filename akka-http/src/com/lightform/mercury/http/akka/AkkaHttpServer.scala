@@ -2,15 +2,18 @@ package com.lightform.mercury.http.akka
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{
+  ContentType,
   HttpEntity,
   HttpHeader,
   HttpRequest,
   HttpResponse,
+  MediaType,
   StatusCode
 }
 import akka.http.scaladsl.server.Route
 import com.lightform.mercury.{Handler, Server, ServerTransportHint}
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.MediaType.Compressible
 import akka.stream.Materializer
 import akka.util.ByteString
 
@@ -61,10 +64,21 @@ class AkkaHttpServer[Json](
     } yield response match {
       case None => HttpResponse()
       case Some((json, (status, headers))) =>
+        val cty = ContentType
+          .parse(jsonSupport.mediaType)
+          .left
+          .map { _ =>
+            val parts = jsonSupport.mediaType.split('/')
+            ContentType(
+              MediaType.customBinary(parts(0), parts(1), Compressible)
+            )
+          }
+          .merge
+
         HttpResponse(
           status,
           headers,
-          HttpEntity(jsonSupport.stringify(json) match {
+          HttpEntity(cty, jsonSupport.stringify(json) match {
             case bs: ByteString => bs
             case other          => ByteString(other: _*)
           })

@@ -16,6 +16,8 @@ import scala.util.Try
 object PlayJsonSupport extends PlayJsonSupport
 
 trait PlayJsonSupport extends JsonSupport[JsValue] with PlayJsonDefinitions {
+  val mediaType = "application/json"
+
   def optionWriter[A](implicit writer: JsonWriter[A]) =
     implicitly[JsonWriter[Option[A]]]
 
