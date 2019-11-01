@@ -52,7 +52,7 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
   ): F[Option[(Json, Hint)]] = {
 
     val errorOrRequest = jsonSupport
-      .requestReader[Json]
+      .requestReader[Option[Json]]
       .read(json)
       .toEither
       .leftMap(
@@ -178,7 +178,11 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
 
 object Server {
   type Middleware[F[_], Json, CCtx, RCtx] = (
-      (Request[Json], CCtx, RCtx),
-      (Request[Json], CCtx, RCtx) => F[Option[Response[Option[Json], Json]]]
+      (Request[Option[Json]], CCtx, RCtx),
+      (
+          Request[Option[Json]],
+          CCtx,
+          RCtx
+      ) => F[Option[Response[Option[Json], Json]]]
   ) => F[Option[Response[Option[Json], Json]]]
 }

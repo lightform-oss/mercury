@@ -25,4 +25,10 @@ object Reader {
   implicit def unitReader[Json]: Reader[Json, Unit] = _ => Success(())
 
   implicit def noneReader[Json]: Reader[Json, None.type] = _ => Success(None)
+  implicit def optionReader[Json, A](
+      implicit reader: Reader[Json, A]
+  ): Reader[Json, Option[A]] = {
+    case Some(json) => reader.read(json).map(Some(_))
+    case None       => Success(None)
+  }
 }

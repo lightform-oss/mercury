@@ -1,11 +1,14 @@
 package com.lightform.mercury
 
+import java.nio.charset.StandardCharsets
+
 import cats.implicits._
 import com.lightform.mercury.ServerSpec.{
   HelloDie,
   HelloDieWorse,
   HelloRequest,
   MiddlewareRequest,
+  NoParams,
   TestNotification
 }
 import com.lightform.mercury.json.{JsonSupport, Reader, Writer}
@@ -51,10 +54,15 @@ trait ServerSpec[Json]
       (_, _, _) => throw new Exception("KA BOOM")
     )
 
+  val noParamHandler =
+    helper.transaction(NoParams.definition)((_, _, _) => Success(Right("OK")))
+
   "The server" should {
 
     val server =
-      new TestServer[Json](Seq(helloHandler, dieHandler, dieWorseHandler))
+      new TestServer[Json](
+        Seq(helloHandler, dieHandler, dieWorseHandler, noParamHandler)
+      )
 
     "return -32700 on garbage input" in {
       val garbage = new Array[Byte](200)
@@ -243,6 +251,45 @@ trait ServerSpec[Json]
 
       sideEffect shouldEqual true
     }
+
+    "handle requests with no params" in {
+      // need to make sure the json support library isn't writing in a null for the params
+      // looking at you play json 😞
+      val request = if (jsonSupport.mediaType.startsWith("application/json")) {
+        s"""
+          |{
+          |"jsonrpc":"2.0", "method": "${NoParams.definition.method}", "id": 12345
+          |}
+          |""".stripMargin.getBytes(StandardCharsets.UTF_8).toIndexedSeq
+      } else
+        jsonSupport.stringify(
+          jsonSupport
+            .requestWriter[NoParams.type]
+            .writeSome(
+              Request(
+                NoParams.definition.method,
+                NoParams,
+                Some(Right(12345))
+              )
+            )
+        )
+
+      val (json, _) = server
+        ._handle(request, (), ())
+        .success
+        .value
+        .value
+      val response =
+        jsonSupport.responseReader[String, String].read(json).success.value
+      response match {
+        case ResultResponse(result, id) =>
+          id.value shouldEqual Right(12345)
+          result shouldEqual "OK"
+        case ErrorResponse(error, _) =>
+          println(error.expectedData)
+          fail(error.toException)
+      }
+    }
   }
 
   "Middleware" should {
@@ -260,17 +307,17 @@ trait ServerSpec[Json]
           {
             case ((req, _, _), inner) =>
               val newRequest =
-                req.copy(params = appendNumToValsField(1, req.params))
+                req.copy(params = req.params.map(appendNumToValsField(1, _)))
               inner(newRequest, (), ())
           }, {
             case ((req, _, _), inner) =>
               val newRequest =
-                req.copy(params = appendNumToValsField(2, req.params))
+                req.copy(params = req.params.map(appendNumToValsField(2, _)))
               inner(newRequest, (), ())
           }, {
             case ((req, _, _), inner) =>
               val newRequest =
-                req.copy(params = appendNumToValsField(3, req.params))
+                req.copy(params = req.params.map(appendNumToValsField(3, _)))
               inner(newRequest, (), ())
           }
         )
@@ -320,6 +367,18 @@ object ServerSpec {
     type ErrorData = String
 
     val method = "dieWorse"
+  }
+
+  object NoParams {
+    implicit val definition = new IdMethodDefinition[NoParams.type] {
+      type Result = String
+      type ErrorData = None.type
+
+      val method = "noParams"
+    }
+
+    implicit def reader[J]: Reader[J, NoParams.type] = _ => Success(NoParams)
+    implicit def writer[J]: Writer[J, NoParams.type] = _ => None
   }
 
   case class MiddlewareRequest(vals: Seq[Int])

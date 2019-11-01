@@ -1,17 +1,15 @@
 package com.lightform.mercury.json.playjson
 
 import com.lightform.mercury._
-import scala.collection.immutable.IndexedSeq
-
 import com.lightform.mercury.json._
 import com.lightform.mercury.json.playjson.PlayJsonSupport.{
   JsonReader,
   JsonWriter
 }
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-import scala.util.Try
+import scala.collection.immutable.IndexedSeq
+import scala.util.{Failure, Try}
 
 object PlayJsonSupport extends PlayJsonSupport
 
@@ -33,7 +31,20 @@ trait PlayJsonSupport extends JsonSupport[JsValue] with PlayJsonDefinitions {
     )
 
   def requestReader[P](implicit reader: JsonReader[P]) =
-    readsReader(requestReads[P])
+    Reader[JsValue, Request[P]](
+      js =>
+        if ((js \ "jsonrpc").validate[String].contains("2.0")) {
+          for {
+            method <- JsResult.toTry((js \ "method").validate[String])
+            params <- reader.read((js \ "params").toOption)
+            maybeId = (js \ "id").validate[Either[String, Long]].asOpt
+          } yield Request(method, params, maybeId)
+        } else {
+          Failure(
+            new Exception("JSON-RPC request was not protocol version 2.0")
+          )
+        }
+    )
 
   def responseReader[ErrorData, Result](
       implicit errorReader: JsonReader[ErrorData],
@@ -154,13 +165,6 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
 
   implicit def writesWriter[A: Writes]: NonAbsentWriter[JsValue, A] =
     Json.toJson
-
-  def requestReads[P: JsonReader] =
-    (
-      (JsPath \ "method").read[String] and
-        (JsPath \ "params").read[P](readerReads[P]) and
-        (JsPath \ "id").readNullable[Either[String, Long]]
-    )(Request.apply[P] _)
 }
 
 trait LowPriorityDefinitions {

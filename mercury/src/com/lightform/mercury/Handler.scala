@@ -12,7 +12,7 @@ sealed trait Handler[F[_], Json, CCtx, RCtx] {
   def method: MethodDefinition[_]
 
   def handle(
-      json: Request[Json],
+      json: Request[Option[Json]],
       connectionCtx: CCtx,
       requestCtx: RCtx
   ): F[Option[Response[Option[Json], Json]]]
@@ -28,14 +28,14 @@ class NotificationHandler[F[_], P, Json, ConnectionCtx, RequestCtx](
     with LazyLogging {
 
   def handle(
-      request: Request[Json],
+      request: Request[Option[Json]],
       connectionCtx: ConnectionCtx,
       requestCtx: RequestCtx
   ) =
     _handle(request, connectionCtx, requestCtx).map(_ => None)
 
   def _handle(
-      request: Request[Json],
+      request: Request[Option[Json]],
       connectionCtx: ConnectionCtx,
       requestCtx: RequestCtx
   ) = {
@@ -66,14 +66,14 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, ConnectionCtx
   import jsonSupport._
 
   def handle(
-      json: Request[Json],
+      json: Request[Option[Json]],
       connectionCtx: ConnectionCtx,
       requestCtx: RequestCtx
   ) =
     _handle(json, connectionCtx, requestCtx).map(Some(_))
 
   def _handle(
-      jsonRequest: Request[Json],
+      jsonRequest: Request[Option[Json]],
       connectionCtx: ConnectionCtx,
       requestCtx: RequestCtx
   ) =
