@@ -40,8 +40,9 @@ package object paho {
     val persistence = new MemoryPersistence
     try {
       val client = new MqttAsyncClient(broker, clientId, persistence)
-      actionListener(listener => client.connect(connectionOptions, listener))
-        .map(_ => client)
+      actionListener(
+        listener => client.connect(connectionOptions, null, listener)
+      ).map(_ => client)
         .onComplete(promise.complete)
     } catch {
       case mqtt: MqttException => promise.failure(mqtt)
