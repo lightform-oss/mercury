@@ -13,7 +13,30 @@ package object paho {
       future.transform(_.flatMap(f))
   }
 
-  case class MqttMessageCtx(topic: String, qos: Int, retain: Boolean)
+  class Qos private (val value: Int) extends AnyVal {
+    override def toString = String.valueOf(value)
+  }
+
+  object Qos {
+    def apply(int: Int): Qos = int match {
+      case 0 => atMostOnce
+      case 1 => atLeastOnce
+      case 2 => exactlyOnce
+      case other =>
+        throw new IllegalArgumentException(
+          s"MQTT QOS value must be 0, 1, or 2. Not $other."
+        )
+    }
+
+    val atMostOnce = new Qos(0)
+    val atLeastOnce = new Qos(1)
+    val exactlyOnce = new Qos(2)
+
+    import scala.language.implicitConversions
+    implicit def value(qos: Qos): Int = qos.value
+  }
+
+  case class MqttMessageCtx(topic: String, qos: Qos, retain: Boolean)
 
   private[paho] def actionListener(
       f: IMqttActionListener => Unit

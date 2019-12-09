@@ -31,7 +31,7 @@ object ClientExample extends App with LazyLogging with PlayJsonSupport {
     (_, deviceId) =>
       MqttMessageCtx(
         s"v/1/devices/$deviceId/rpc",
-        1,
+        Qos.atLeastOnce,
         retain = false
       )
 
@@ -49,7 +49,7 @@ object ClientExample extends App with LazyLogging with PlayJsonSupport {
               s"id missing when trying to compose a reply for ${request.method} request"
             )
           ),
-        1,
+        Qos.atLeastOnce,
         retain = false
       )
 
@@ -71,7 +71,7 @@ object ServerExample extends App with LazyLogging with PlayJsonSupport {
           s"v/1/devices/testDevice/rpc/reply/${id.idToString}"
         case None => "v/1/devices/testDevice/rpc/reply"
       }
-      MqttMessageCtx(topic, 1, false)
+      MqttMessageCtx(topic, Qos.atLeastOnce, false)
     }
 
   val connectionOptions = new MqttConnectOptions()

@@ -40,7 +40,8 @@ class PahoMqttServer[Json] private (
 
   private object Listener extends IMqttMessageListener {
     def messageArrived(topic: String, message: MqttMessage) = {
-      val requestCtx = MqttMessageCtx(topic, message.getQos, message.isRetained)
+      val requestCtx =
+        MqttMessageCtx(topic, Qos(message.getQos), message.isRetained)
       logger.debug("got " + message.getPayload + " on " + requestCtx)
 
       handle(message.getPayload.toIndexedSeq, (), requestCtx).onComplete {

@@ -4,7 +4,8 @@ import com.lightform.mercury.json.playjson._
 import com.lightform.mercury.mqtt.paho.{
   MqttMessageCtx,
   PahoMqttClient,
-  PahoMqttServer
+  PahoMqttServer,
+  Qos
 }
 import com.lightform.mercury.sample.broker
 import com.lightform.mercury.sample.pets.{
@@ -35,12 +36,13 @@ object ServerExample extends App {
         case Some(id) => s"json-rpc/servers/$serverId/reply/$id"
         case None     => s"json-rpc/servers/$serverId/reply"
       }
-      MqttMessageCtx(topic, 1, retain = false)
+      MqttMessageCtx(topic, Qos.atLeastOnce, retain = false)
     }
 
   val petServer: PetStoreService = new PetStoreServer
 
   val connectionOptions = new MqttConnectOptions()
+
   val (help, serverBuilder) =
     PahoMqttServer(
       broker,
@@ -77,7 +79,12 @@ object ServerExample extends App {
 object ClientExample extends App {
   implicit val clientTransportRequestHint
       : ClientTransportRequestHint[Unit, MqttMessageCtx] =
-    (_, _) => MqttMessageCtx(s"json-rpc/servers/$serverId", 1, retain = false)
+    (_, _) =>
+      MqttMessageCtx(
+        s"json-rpc/servers/$serverId",
+        Qos.atLeastOnce,
+        retain = false
+      )
 
   implicit val clientTransportResponseHint
       : ClientTransportResponseHint[Unit, MqttMessageCtx] =
@@ -86,7 +93,7 @@ object ClientExample extends App {
         case Some(id) => s"json-rpc/servers/$serverId/reply/$id"
         case None     => s"json-rpc/servers/$serverId/reply"
       }
-      MqttMessageCtx(topic, 1, false)
+      MqttMessageCtx(topic, Qos.atLeastOnce, false)
     }
 
   val connectionOptions = new MqttConnectOptions()
