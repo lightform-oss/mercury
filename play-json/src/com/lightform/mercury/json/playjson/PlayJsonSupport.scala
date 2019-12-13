@@ -47,7 +47,7 @@ trait PlayJsonSupport extends JsonSupport[JsValue] with PlayJsonDefinitions {
     )
 
   def responseReader[ErrorData, Result](
-      implicit errorReader: JsonReader[ErrorData],
+      implicit registry: JsonErrorRegistry[ErrorData],
       resultReader: JsonReader[Result]
   ) = { maybeJson: Option[JsValue] =>
     Try(maybeJson.get)
@@ -99,7 +99,12 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
       Writes[Either[String, Long]](_.fold(Json.toJson(_), Json.toJson(_)))
     )
 
+  val basicErrorFormat = Json.format[BasicError]
+
+  // expected
   def exErrorReads[E: Reads] = Json.reads[ExpectedError[E]]
+
+  // unexpected
   val uxErrorReads = Reads(
     js =>
       for {
@@ -113,8 +118,19 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
       )
   )
 
-  implicit def errorReads[E: Reads]: Reads[Error[E]] =
-    json => exErrorReads[E].reads(json).orElse(uxErrorReads.reads(json))
+  implicit def errorReads[E](
+      implicit registry: ErrorRegistry[JsValue, E]
+  ): Reads[Error[E]] =
+    json =>
+      basicErrorFormat
+        .reads(json)
+        .flatMap(
+          error =>
+            registry.lift(error) match {
+              case None         => uxErrorReads.reads(json)
+              case Some(reader) => exErrorReads(readerReads(reader)).reads(json)
+            }
+        )
 
   implicit def errorWrites[E: Writes]: Writes[Error[E]] = {
     case e: ExpectedError[E] => Json.writes[ExpectedError[E]].writes(e)
@@ -136,14 +152,15 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
         } yield ResultResponse(result, id)
     )
 
-  def errorResponseReads[ErrorData: Reads] =
-    Reads(
-      js =>
-        for {
-          error <- (js \ "error").validate[Error[ErrorData]]
-          id <- (js \ "id").validateOpt[Either[String, Long]]
-        } yield ErrorResponse(error, id)
-    )
+  def errorResponseReads[ErrorData](
+      implicit registry: ErrorRegistry[JsValue, ErrorData]
+  ) = Reads(
+    js =>
+      for {
+        error <- (js \ "error").validate[Error[ErrorData]]
+        id <- (js \ "id").validateOpt[Either[String, Long]]
+      } yield ErrorResponse(error, id)
+  )
 
   def resultResponseWrites[Result: Writes] = Json.writes[ResultResponse[Result]]
   def errorResponseWrites[ErrorData: Writes] =

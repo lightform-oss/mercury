@@ -20,11 +20,14 @@ object Reader {
   def read[Json, A](json: Json)(implicit reader: Reader[Json, A]) =
     reader.read(json)
 
+  def forObject[Json, A](obj: A): Reader[Json, A] = _ => Success(obj)
+
   implicit def identityReader[Json]: Reader[Json, Json] = js => Try(js.get)
 
-  implicit def unitReader[Json]: Reader[Json, Unit] = _ => Success(())
+  implicit def unitReader[Json]: Reader[Json, Unit] = forObject(())
 
-  implicit def noneReader[Json]: Reader[Json, None.type] = _ => Success(None)
+  implicit def noneReader[Json]: Reader[Json, None.type] = forObject(None)
+
   implicit def optionReader[Json, A](
       implicit reader: Reader[Json, A]
   ): Reader[Json, Option[A]] = {

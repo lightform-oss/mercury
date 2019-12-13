@@ -5,7 +5,7 @@ import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
 import cats.implicits._
 import com.lightform.mercury.Server.Middleware
-import com.lightform.mercury.json.{JsonSupport, Reader}
+import com.lightform.mercury.json.{ErrorRegistry, JsonSupport, Reader}
 import com.lightform.mercury.pure.akka.AkkaStreamClientServer.ncores
 import com.lightform.mercury.util.{Timer, generateId}
 import com.lightform.mercury._
@@ -54,8 +54,8 @@ class AkkaStreamClientServer[Json, CCtx](
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
-      errorReader: JsonReader[E]
-  ): Future[Either[Error[E], R]] = {
+      registry: JsonErrorRegistry[E]
+  ): Future[Either[E, R]] = {
     val completion = ResponseCompletion(method, Promise[Response[E, R]])
     val id = generateId
     responseCompletions.put(id, completion)
@@ -63,7 +63,10 @@ class AkkaStreamClientServer[Json, CCtx](
     val requestJson = requestWriter[P].writeSome(request)
     enqueue(requestJson)
     Timer.schedule(requestTimeout)(responseCompletions.remove(id))
-    Timer.withTimeout(completion.promise.future.map(_.toEither), requestTimeout)
+    Timer.withTimeout(
+      completion.promise.future.flatMap(_.toEitherF[Future]),
+      requestTimeout
+    )
   }
 
   def notify[P](params: P)(
@@ -177,7 +180,7 @@ private case class ResponseCompletion[Json, P, E, R](
     promise: Promise[Response[E, R]]
 )(
     implicit val resultReader: Reader[Json, R],
-    val errorReader: Reader[Json, E]
+    val registry: ErrorRegistry[Json, E]
 ) {
   type Error = E
   type Result = R
