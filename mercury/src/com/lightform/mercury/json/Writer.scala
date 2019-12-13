@@ -17,14 +17,14 @@ object Writer extends LowPriorityWriters {
 
   def apply[Json, A](f: A => Json): NonAbsentWriter[Json, A] = a => f(a)
 
+  def apply[Json] = new WriterPartiallyTyped[Json]
+
   class WriterPartiallyTyped[Json] {
     def write[A](a: A)(implicit writer: Writer[Json, A]) = writer.write(a)
 
     def writeSome[A](a: A)(implicit writer: NonAbsentWriter[Json, A]) =
       writer.writeSome(a)
   }
-
-  def apply[Json] = new WriterPartiallyTyped[Json]
 
   def empty[Json, A]: Writer[Json, A] = _ => None
 
@@ -40,7 +40,7 @@ object Writer extends LowPriorityWriters {
 trait LowPriorityWriters {
   //implicit def nothingWriter[Json]: Writer[Json, Nothing] = _ => None
 
-  implicit def identityWriter[Json]: NonAbsentWriter[Json, Json] = js => js
+  implicit def identity[Json]: NonAbsentWriter[Json, Json] = js => js
 
   /*
   implicit def optionWriter[Json, A](
@@ -52,10 +52,10 @@ trait LowPriorityWriters {
 
    */
 
-  implicit def unitWriter[Json](
+  implicit def unit[Json](
       implicit seqWriter: NonAbsentWriter[Json, Seq[Int]]
   ): NonAbsentWriter[Json, Unit] =
     Writer[Json, Unit](_ => seqWriter.writeSome(Seq.empty))
 
-  implicit def noneWriter[Json]: Writer[Json, None.type] = Writer.empty
+  implicit def none[Json]: Writer[Json, None.type] = Writer.empty
 }

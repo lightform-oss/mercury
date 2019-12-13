@@ -97,7 +97,7 @@ object UnexpectedError {
       writer.write(data).map(jsonSupport.stringify)
     )
 
-  implicit def monadErrorFromThrowableToUnexpectedError[F[_]](
+  implicit def monadErrorFromThrowable[F[_]](
       implicit F: MonadError[F, Throwable]
   ): MonadError[F, UnexpectedError] = new MonadError[F, UnexpectedError] {
     def pure[A](x: A): F[A] = F.pure(x)
