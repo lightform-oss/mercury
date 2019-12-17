@@ -6,9 +6,8 @@ object ErrorRegistry {
   ): ErrorRegistry[Json, E] = Function.unlift(e => readers.get(e.code))
 
   def single[Json, E](
-      code: Int,
-      reader: Reader[Json, E]
-  ): ErrorRegistry[Json, E] = {
+      code: Int
+  )(implicit reader: Reader[Json, E]): ErrorRegistry[Json, E] = {
     case e if e.code == code => reader
   }
 
@@ -35,10 +34,24 @@ object ErrorRegistry {
       registry: ErrorRegistry[Js, B]
   ) = registry.andThen(abstractReader[Js, A, B](_))
 
-  def combine[Js, A, B <: A, C <: A](
-      first: ErrorRegistry[Js, B],
-      second: ErrorRegistry[Js, C]
-  ): ErrorRegistry[Js, A] =
-    abstractRegistry[Js, A, B](first)
-      .orElse(abstractRegistry[Js, A, C](second))
+  def combine[A] = new CombineInterim2[A](())
+
+  implicit class Syntax[Js, E](val registry: ErrorRegistry[Js, E])
+      extends AnyVal {
+
+    def upcast[A >: E]: ErrorRegistry[Js, A] = abstractRegistry(registry)
+
+    def combine[C <: E](second: ErrorRegistry[Js, C]): ErrorRegistry[Js, E] =
+      registry.orElse(abstractRegistry(second))
+  }
+
+  class CombineInterim2[A] private[ErrorRegistry] (val dummy: Unit)
+      extends AnyVal {
+    def apply[Js, B <: A, C <: A](
+        first: ErrorRegistry[Js, B],
+        second: ErrorRegistry[Js, C]
+    ): ErrorRegistry[Js, A] =
+      abstractRegistry[Js, A, B](first)
+        .orElse(abstractRegistry[Js, A, C](second))
+  }
 }

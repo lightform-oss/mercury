@@ -376,7 +376,7 @@ object ServerSpec {
 
   object NameEmpty {
     implicit def errorRegistry[Js]: ErrorRegistry[Js, NameEmpty.type] =
-      ErrorRegistry.single(1, Reader.forObject(NameEmpty))
+      ErrorRegistry.single(1)(Reader.forObject(NameEmpty))
     implicit def writer[Js]: Writer[Js, NameEmpty.type] =
       Writer.empty[Js, NameEmpty.type]
   }
