@@ -20,12 +20,15 @@ object Reader {
   def read[Json, A](json: Json)(implicit reader: Reader[Json, A]) =
     reader.read(json)
 
-  implicit def identityReader[Json]: Reader[Json, Json] = js => Try(js.get)
+  def forObject[Json, A](obj: A): Reader[Json, A] = _ => Success(obj)
 
-  implicit def unitReader[Json]: Reader[Json, Unit] = _ => Success(())
+  implicit def identity[Json]: Reader[Json, Json] = js => Try(js.get)
 
-  implicit def noneReader[Json]: Reader[Json, None.type] = _ => Success(None)
-  implicit def optionReader[Json, A](
+  implicit def unit[Json]: Reader[Json, Unit] = forObject(())
+
+  implicit def none[Json]: Reader[Json, None.type] = forObject(None)
+
+  implicit def option[Json, A](
       implicit reader: Reader[Json, A]
   ): Reader[Json, Option[A]] = {
     case Some(json) => reader.read(json).map(Some(_))

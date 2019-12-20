@@ -1,6 +1,6 @@
 package com.lightform.mercury.sample
 
-import cats.implicits._
+import com.lightform.mercury.json.ErrorRegistry
 import com.lightform.mercury.json.playjson._
 import com.lightform.mercury.mqtt.paho._
 import com.lightform.mercury.{
@@ -17,6 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
+import cats.implicits._
 
 object ClientExample extends App with LazyLogging with PlayJsonSupport {
 
@@ -53,6 +54,7 @@ object ClientExample extends App with LazyLogging with PlayJsonSupport {
         retain = false
       )
 
+  import ErrorRegistry.implicits.expectAll
   val response = client.transact(TestRequest("param1Value"), "testDevice")
 
   val note = client.notify(TestNotification("notification param"), "testDevice")

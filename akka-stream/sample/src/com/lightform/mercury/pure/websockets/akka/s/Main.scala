@@ -12,13 +12,14 @@ import akka.http.scaladsl.model.{
 }
 import akka.stream.ActorMaterializer
 import com.lightform.mercury.ExpectedError
+import com.lightform.mercury.json.ErrorRegistry
 import com.lightform.mercury.json.playjson._
 import com.lightform.mercury.pure.akka.AkkaStreamClientServer
 import com.lightform.mercury.sample.pets._
 import play.api.libs.json.JsValue
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.io.StdIn
 import scala.language.postfixOps
 
@@ -36,7 +37,7 @@ object ServerExample extends App {
     (p, _, _) =>
       petServer
         .listPets(p.limit)
-        .map(_.toRight(ExpectedError(100, "pets busy", None)))
+        .map(_.toRight(ExpectedError(100, "pets busy", PetsBusy)))
   )
   val createPetHandler = helper.transaction(CreatePet)(
     (p, _, _) => petServer.createPet(p.newPetName, p.newPetTag).map(Right(_))
@@ -45,10 +46,21 @@ object ServerExample extends App {
     (p, _, _) =>
       petServer
         .getPet(p.petId)
-        .map(_.toRight(ExpectedError(404, "no such pet", None)))
+        .map(_.toRight(ExpectedError(404, "no such pet", NoSuchPet)))
   )
 
-  val handlers = Seq(listPetsHandler, createPetHandler, getPetHandler)
+  val feedPetHandler = helper.transaction(FeedPet)(
+    (p, _, _) =>
+      petServer
+        .feedPet(p.petId)
+        .map(_.left.map {
+          case PetAsleep => ExpectedError(109, "pet asleep", PetAsleep)
+          case NoSuchPet => ExpectedError(404, "no such pet", NoSuchPet)
+        })
+  )
+
+  val handlers =
+    Seq(listPetsHandler, createPetHandler, getPetHandler, feedPetHandler)
 
   val parallelism = 50
   val timeout = 5 seconds
@@ -118,6 +130,8 @@ object ClientExample extends App {
 
   closed.foreach(_ => println("closed"))
 
+  import ErrorRegistry.implicits.expectAll
+
   val petClient = Await.result(
     connected.map(
       _ =>
@@ -126,17 +140,13 @@ object ClientExample extends App {
             client.transact(ListPets(limit)).map(_.toOption)
 
           def createPet(newPetName: String, newPetTag: Option[String]) =
-            client.transact(CreatePet(newPetName, newPetTag)).flatMap {
-              case Right(unit) => Future.successful(unit)
-              case Left(error) => Future.failed(error.toException)
-            }
+            client.transact(CreatePet(newPetName, newPetTag)).map(_ => ())
 
           def getPet(petId: Int) =
-            client.transact(GetPet(petId)).flatMap {
-              case Right(pet)                       => Future.successful(Some(pet))
-              case Left(error) if error.code == 404 => Future.successful(None)
-              case Left(error)                      => Future.failed(error.toException)
-            }
+            client.transact(GetPet(petId)).map(_.toOption)
+
+          def feedPet(petId: Int) = client.transact(FeedPet(petId))
+
         }
     ),
     Duration.Inf

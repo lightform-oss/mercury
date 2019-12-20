@@ -1,6 +1,6 @@
 package com.lightform.mercury
 
-import com.lightform.mercury.json.{Reader, Writer}
+import com.lightform.mercury.json.{ErrorRegistry, Reader, Writer}
 
 /**
   * For the given request and transport parameters, provide a transport-specific
@@ -36,8 +36,8 @@ trait PureTransport[F[_], Json] extends RequestMethods {
       method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
-      errorReader: JsonReader[E]
-  ): F[Either[Error[E], R]]
+      registry: JsonErrorRegistry[E]
+  ): F[Either[E, R]]
 
   def notify[P](params: P)(
       implicit
@@ -55,9 +55,9 @@ trait NoTransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
-      errorReader: JsonReader[E],
+      registry: JsonErrorRegistry[E],
       transportHint: ReqH
-  ): F[Either[Error[E], R]]
+  ): F[Either[E, R]]
 
   def notify[P](params: P)(
       implicit method: NotificationMethodDefinition[P],
@@ -75,10 +75,10 @@ trait TransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
-      errorReader: JsonReader[E],
+      errorRegistry: JsonErrorRegistry[E],
       transportReqHint: ReqH[TP],
       transportResHint: ResH[TP]
-  ): F[Either[Error[E], R]]
+  ): F[Either[E, R]]
 
   def notify[P, TP](params: P, transportParams: TP)(
       implicit method: NotificationMethodDefinition[P],
@@ -90,4 +90,5 @@ trait TransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
 trait Client[F[_], Json] { this: RequestMethods =>
   type JsonWriter[A] = Writer[Json, A]
   type JsonReader[A] = Reader[Json, A]
+  type JsonErrorRegistry[A] = ErrorRegistry[Json, A]
 }

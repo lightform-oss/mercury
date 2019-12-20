@@ -1,5 +1,7 @@
 package com.lightform.mercury.json
 
+import scala.reflect.ClassTag
+
 trait Writer[Json, -A] {
   // return an option to allow the distinction between json null and absent field
   def write(a: A): Option[Json]
@@ -15,6 +17,8 @@ object Writer extends LowPriorityWriters {
 
   def apply[Json, A](f: A => Json): NonAbsentWriter[Json, A] = a => f(a)
 
+  def apply[Json] = new WriterPartiallyTyped[Json]
+
   class WriterPartiallyTyped[Json] {
     def write[A](a: A)(implicit writer: Writer[Json, A]) = writer.write(a)
 
@@ -22,13 +26,39 @@ object Writer extends LowPriorityWriters {
       writer.writeSome(a)
   }
 
-  def apply[Json] = new WriterPartiallyTyped[Json]
+  def empty[Json, A]: Writer[Json, A] = _ => None
+
+  def combine[Json, A, B <: A: ClassTag, C <: A: ClassTag](
+      bWriter: Writer[Json, B],
+      cWriter: Writer[Json, C]
+  ): Writer[Json, A] = {
+    case b: B => bWriter.write(b)
+    case c: C => cWriter.write(c)
+  }
+
+  def combine[Json, A, B <: A: ClassTag, C <: A: ClassTag](
+      implicit
+      bWriter: Writer[Json, B],
+      cWriter: Writer[Json, C]
+  ): Writer[Json, A] = {
+    case b: B => bWriter.write(b)
+    case c: C => cWriter.write(c)
+  }
+
+  implicit class Syntax[Json, A](val writer: Writer[Json, A]) extends AnyVal {
+    def combine[B >: A, C <: B: ClassTag](cWriter: Writer[Json, C])(
+        implicit aTag: ClassTag[A]
+    ): Writer[Json, B] = {
+      case a: A => writer.write(a)
+      case c: C => cWriter.write(c)
+    }
+  }
 }
 
 trait LowPriorityWriters {
   //implicit def nothingWriter[Json]: Writer[Json, Nothing] = _ => None
 
-  implicit def identityWriter[Json]: NonAbsentWriter[Json, Json] = js => js
+  implicit def identity[Json]: NonAbsentWriter[Json, Json] = js => js
 
   /*
   implicit def optionWriter[Json, A](
@@ -40,10 +70,10 @@ trait LowPriorityWriters {
 
    */
 
-  implicit def unitWriter[Json](
+  implicit def unit[Json](
       implicit seqWriter: NonAbsentWriter[Json, Seq[Int]]
   ): NonAbsentWriter[Json, Unit] =
     Writer[Json, Unit](_ => seqWriter.writeSome(Seq.empty))
 
-  implicit def noneWriter[Json]: Writer[Json, None.type] = _ => None
+  implicit def none[Json]: Writer[Json, None.type] = Writer.empty
 }

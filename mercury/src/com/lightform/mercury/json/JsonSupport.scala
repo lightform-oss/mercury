@@ -9,6 +9,7 @@ trait JsonSupport[Json] {
   type JsonReader[A] = Reader[Json, A]
   type JsonWriter[A] = Writer[Json, A]
   type NAJsonWriter[A] = NonAbsentWriter[Json, A]
+  type JsonErrorRegistry[A] = ErrorRegistry[Json, A]
 
   /**
     * Used in case the transport cares about the type of bytes it's being given,
@@ -29,7 +30,7 @@ trait JsonSupport[Json] {
   def requestReader[P](implicit reader: JsonReader[P]): JsonReader[Request[P]]
 
   def responseReader[ErrorData, Result](
-      implicit errorReader: JsonReader[ErrorData],
+      implicit errorRegistry: ErrorRegistry[Json, ErrorData],
       resultReader: JsonReader[Result]
   ): JsonReader[Response[ErrorData, Result]]
 

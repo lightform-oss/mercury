@@ -25,17 +25,20 @@ trait JsonSpec[Json]
   "Json support" should {
     "correctly handle the weirdness of UnexpectedError writing and parsing" in {
       val dataString = "Some unexpected error data"
-      val error = UnexpectedError.fromData(-1, "the message", dataString)
+      val error = UnexpectedError.fromData(-32000, "the message", dataString)
       val response = ErrorResponse(error, None)
 
       val writtenResponse = jsonSupport.responseWriter.writeSome(response)
 
       val extractedDataString =
         getFromPath(writtenResponse, "error", "data").value
+
       stringReader
         .read(extractedDataString)
         .success
         .value shouldEqual dataString
+
+      import ErrorRegistry.implicits.expectAll
 
       val readError =
         jsonSupport
@@ -54,6 +57,27 @@ trait JsonSpec[Json]
         .as[String]
         .success
         .value shouldEqual dataString
+    }
+  }
+
+  "Writers" should {
+
+    // this test should be redundant as long as type erasure warnings are set as errors
+    "combine" in {
+      trait A
+
+      object B extends A {
+        val writer: Writer[Json, B.type] = _ => stringWriter.write("B")
+      }
+
+      object C extends A {
+        val writer: Writer[Json, C.type] = _ => stringWriter.write("C")
+      }
+
+      val combined = Writer.combine(B.writer, C.writer)
+
+      combined.write(B).value shouldEqual stringWriter.writeSome("B")
+      combined.write(C).value shouldEqual stringWriter.writeSome("C")
     }
   }
 }

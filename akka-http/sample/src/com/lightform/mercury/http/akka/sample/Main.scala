@@ -8,10 +8,14 @@ import com.lightform.mercury.http.akka.AkkaHttpServer
 import com.lightform.mercury.json.playjson._
 import com.lightform.mercury.sample.pets.{
   CreatePet,
+  FeedPet,
   GetPet,
   ListPets,
+  NoSuchPet,
+  PetAsleep,
   PetStoreServer,
-  PetStoreService
+  PetStoreService,
+  PetsBusy
 }
 import com.lightform.mercury.{
   ErrorResponse,
@@ -40,7 +44,7 @@ object Main extends App with LazyLogging {
     (p, _, _) =>
       petServer
         .listPets(p.limit)
-        .map(_.toRight(ExpectedError(100, "pets busy", None)))
+        .map(_.toRight(ExpectedError(100, "pets busy", PetsBusy)))
   )
 
   val createPetHandler = helper.transaction(CreatePet)(
@@ -51,10 +55,21 @@ object Main extends App with LazyLogging {
     (p, _, _) =>
       petServer
         .getPet(p.petId)
-        .map(_.toRight(ExpectedError(404, "no such pet", None)))
+        .map(_.toRight(ExpectedError(404, "no such pet", NoSuchPet)))
   )
 
-  val handlers = Seq(listPetsHandler, createPetHandler, getPetHandler)
+  val feedPetHandler = helper.transaction(FeedPet)(
+    (p, _, _) =>
+      petServer
+        .feedPet(p.petId)
+        .map(_.leftMap {
+          case PetAsleep => ExpectedError(109, "pet asleep", PetAsleep)
+          case NoSuchPet => ExpectedError(404, "no such pet", NoSuchPet)
+        })
+  )
+
+  val handlers =
+    Seq(listPetsHandler, createPetHandler, getPetHandler, feedPetHandler)
 
   implicit val hint: ServerTransportHint[(StatusCode, Seq[HttpHeader])] =
     (_, response) =>

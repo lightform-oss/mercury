@@ -8,6 +8,7 @@ import org.eclipse.paho.client.mqttv3._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.Failure
+import cats.implicits._
 
 /**
   *
@@ -38,7 +39,7 @@ class PahoMqttClient[Json] private (
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
-      errorReader: JsonReader[E],
+      errorRegistry: JsonErrorRegistry[E],
       transportReqHint: ReqH[TP],
       transportResHint: ResH[TP]
   ) = {
@@ -60,7 +61,7 @@ class PahoMqttClient[Json] private (
         .tryMap(jsonSupport.responseReader[E, R].read)
     }
 
-    eventualResponse.map(_.toEither)
+    eventualResponse.flatMap(_.toEitherF[Future])
   }
 
   private def singleSubscribeListener(
