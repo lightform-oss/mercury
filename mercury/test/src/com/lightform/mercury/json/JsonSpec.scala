@@ -1,5 +1,6 @@
 package com.lightform.mercury.json
 
+import com.lightform.mercury.json.Writer.Combine
 import com.lightform.mercury.{ErrorResponse, UnexpectedError}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Matchers, OptionValues, TryValues, WordSpec}
@@ -67,17 +68,32 @@ trait JsonSpec[Json]
       trait A
 
       object B extends A {
-        val writer: Writer[Json, B.type] = _ => stringWriter.write("B")
+        implicit val writer: Writer[Json, B.type] = _ => stringWriter.write("B")
       }
 
       object C extends A {
-        val writer: Writer[Json, C.type] = _ => stringWriter.write("C")
+        implicit val writer: Writer[Json, C.type] = _ => stringWriter.write("C")
       }
 
-      val combined = Writer.combine(B.writer, C.writer)
+      object D extends A {
+        implicit val writer = Writer.empty[Json, D.type]
+      }
+
+      object E extends A {
+        implicit val writer = Writer.empty[Json, E.type]
+      }
+
+      val combined = Combine[Json, A] {
+        case B => B
+        case C => C
+        case D => D
+        case E => E
+      }
 
       combined.write(B).value shouldEqual stringWriter.writeSome("B")
       combined.write(C).value shouldEqual stringWriter.writeSome("C")
+      combined.write(D) shouldEqual None
+      combined.write(E) shouldEqual None
     }
   }
 }
