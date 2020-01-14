@@ -3,6 +3,7 @@ package com.lightform.mercury.sample
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.lightform.mercury.IdMethodDefinition
+import com.lightform.mercury.json.Writer.Combine
 import com.lightform.mercury.json.{BasicError, ErrorRegistry, Reader, Writer}
 import play.api.libs.json.Json
 
@@ -69,7 +70,10 @@ package object pets {
       ErrorRegistry.combine(PetAsleep.registry, NoSuchPet.registry)
 
     implicit def writer[Js]: Writer[Js, FeedPetError] =
-      Writer.combine(PetAsleep.writer, NoSuchPet.writer)
+      Combine {
+        case PetAsleep => PetAsleep
+        case NoSuchPet => NoSuchPet
+      }
   }
 
   case class FeedPet(petId: Int)

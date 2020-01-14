@@ -1,6 +1,6 @@
 package com.lightform.mercury.json
 
-import scala.reflect.ClassTag
+import shapeless.Lazy
 
 trait Writer[Json, -A] {
   // return an option to allow the distinction between json null and absent field
@@ -28,30 +28,24 @@ object Writer extends LowPriorityWriters {
 
   def empty[Json, A]: Writer[Json, A] = _ => None
 
-  def combine[Json, A, B <: A: ClassTag, C <: A: ClassTag](
-      bWriter: Writer[Json, B],
-      cWriter: Writer[Json, C]
-  ): Writer[Json, A] = {
-    case b: B => bWriter.write(b)
-    case c: C => cWriter.write(c)
-  }
-
-  def combine[Json, A, B <: A: ClassTag, C <: A: ClassTag](
-      implicit
-      bWriter: Writer[Json, B],
-      cWriter: Writer[Json, C]
-  ): Writer[Json, A] = {
-    case b: B => bWriter.write(b)
-    case c: C => cWriter.write(c)
-  }
-
-  implicit class Syntax[Json, A](val writer: Writer[Json, A]) extends AnyVal {
-    def combine[B >: A, C <: B: ClassTag](cWriter: Writer[Json, C])(
-        implicit aTag: ClassTag[A]
-    ): Writer[Json, B] = {
-      case a: A => writer.write(a)
-      case c: C => cWriter.write(c)
+  /**
+    * Useful for combining several writers into one writer for a parent type.
+    * Use like
+    * val superWriter = Combine[JSON, SuperType] {
+    *   case a: A => a
+    *   case b: B => b
+    *   case C => C
+    * }
+    */
+  object Combine {
+    import scala.language.implicitConversions
+    case class Magnet[Json](js: Option[Json]) extends AnyVal
+    object Magnet {
+      implicit def fromValueAndWriter[Json, A](a: A)(
+          implicit aWriter: Lazy[Writer[Json, A]]
+      ) = Magnet(aWriter.value.write(a))
     }
+    def apply[Json, A](f: A => Magnet[Json]): Writer[Json, A] = a => f(a).js
   }
 }
 
