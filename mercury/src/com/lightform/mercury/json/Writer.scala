@@ -1,5 +1,7 @@
 package com.lightform.mercury.json
 
+import shapeless.Lazy
+
 trait Writer[Json, -A] {
   // return an option to allow the distinction between json null and absent field
   def write(a: A): Option[Json]
@@ -26,13 +28,22 @@ object Writer extends LowPriorityWriters {
 
   def empty[Json, A]: Writer[Json, A] = _ => None
 
+  /**
+    * Useful for combining several writers into one writer for a parent type.
+    * Use like
+    * val superWriter = Combine[JSON, SuperType] {
+    *   case a: A => a
+    *   case b: B => b
+    *   case C => C
+    * }
+    */
   object Combine {
     import scala.language.implicitConversions
     case class Magnet[Json](js: Option[Json]) extends AnyVal
     object Magnet {
       implicit def fromValueAndWriter[Json, A](a: A)(
-          implicit writer: Writer[Json, A]
-      ) = Magnet(writer.write(a))
+          implicit aWriter: Lazy[Writer[Json, A]]
+      ) = Magnet(aWriter.value.write(a))
     }
     def apply[Json, A](f: A => Magnet[Json]): Writer[Json, A] = a => f(a).js
   }

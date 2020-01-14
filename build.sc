@@ -14,6 +14,7 @@ object Dep {
   val scalaLogging = ivy"com.typesafe.scala-logging::scala-logging:3.9.2"
   val collectionCompat = ivy"org.scala-lang.modules::scala-collection-compat:2.1.2"
   val playJson = ivy"com.typesafe.play::play-json:2.7.4"
+  val shapeless = ivy"com.chuusai::shapeless:2.3.3"
 }
 
 val developers = Seq(Developer("kag0", "Nathan Fischer", "https://github.com/kag0", Some("lightform"), Some("https://github.com/blackdoor")))
@@ -52,7 +53,8 @@ class MercuryModule(val crossScalaVersion: String) extends BaseModule with Publi
   def ivyDeps = Agg(
     Dep.cats,
     Dep.scalaLogging,
-    Dep.collectionCompat
+    Dep.collectionCompat,
+    Dep.shapeless
   )
 
   def pomSettings = PomSettings(

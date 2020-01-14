@@ -63,7 +63,6 @@ trait JsonSpec[Json]
 
   "Writers" should {
 
-    // this test should be redundant as long as type erasure warnings are set as errors
     "combine" in {
       trait A
 
