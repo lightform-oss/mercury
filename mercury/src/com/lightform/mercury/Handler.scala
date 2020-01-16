@@ -55,7 +55,7 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, ConnectionCtx
         P,
         ConnectionCtx,
         RequestCtx
-    ) => F[Either[ExpectedError[D#ErrorData], D#Result]]
+    ) => F[Either[Error[D#ErrorData], D#Result]]
 )(
     implicit paramReader: Reader[Json, P],
     errorDataWriter: Writer[Json, D#ErrorData],
@@ -100,7 +100,11 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, ConnectionCtx
           .leftMap(
             e =>
               ErrorResponse(
-                e.copy(data = errorDataWriter.write(e.data)),
+                e match {
+                  case ExpectedError(code, message, data) =>
+                    ExpectedError(code, message, errorDataWriter.write(data))
+                  case e: UnexpectedError => e
+                },
                 jsonRequest.id
               )
           )
@@ -115,7 +119,7 @@ class HandlerHelper[F[_]: Monad: Applicative, Json: JsonSupport, ConnectionCtx, 
           P,
           ConnectionCtx,
           RequestCtx
-      ) => F[Either[ExpectedError[method.ErrorData], method.Result]]
+      ) => F[Either[Error[method.ErrorData], method.Result]]
   )(
       implicit paramReader: Reader[Json, P],
       errorDataWriter: Writer[Json, method.ErrorData],
