@@ -67,8 +67,8 @@ Aside from transport hints, client usage is simple. You just pass a request para
 
 ```scala
 // The type of F depends on the client implementation. It could be a Future to be awaited or an IO monad to be executed.
-val response: F[Either[Error[NoSuchPet], Pet]] = client.transact(GetPet(1))
-val notification: F[Unit] = client.notify(SendLove(1))
+val response = client.transact(GetPet(1))     // F[Either[Error[NoSuchPet], Pet]]
+val notification = client.notify(SendLove(1)) // F[Unit]
 ```
 
 ## Server
