@@ -180,7 +180,7 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
   implicit def readsReader[A: Reads]: Reader[JsValue, A] =
     Reader[JsValue, A](js => JsResult.toTry(js.validate[A]))
 
-  implicit def writesWriter[A: Writes]: NonAbsentWriter[JsValue, A] =
+  implicit def writesWriter[A: Writes]: NonAbsentInvariantWriter[JsValue, A] =
     Json.toJson
 }
 

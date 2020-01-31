@@ -67,11 +67,13 @@ trait JsonSpec[Json]
       trait A
 
       object B extends A {
-        implicit val writer: Writer[Json, B.type] = _ => stringWriter.write("B")
+        implicit val writer: InvariantWriter[Json, B.type] =
+          _ => stringWriter.write("B")
       }
 
       object C extends A {
-        implicit val writer: Writer[Json, C.type] = _ => stringWriter.write("C")
+        implicit val writer: InvariantWriter[Json, C.type] =
+          _ => stringWriter.write("C")
       }
 
       object D extends A {
@@ -93,6 +95,35 @@ trait JsonSpec[Json]
       combined.write(C).value shouldEqual stringWriter.writeSome("C")
       combined.write(D) shouldEqual None
       combined.write(E) shouldEqual None
+    }
+
+    "combine into multiple parent classes" in {
+      object SpecificType extends SuperA with SuperB {
+        implicit def writer[Js] =
+          Writer.empty[Js, SpecificType.type]
+      }
+
+      object SpecificType2 extends SuperA {
+        implicit def writer[Js] = Writer.empty[Js, SpecificType2.type]
+      }
+
+      sealed trait SuperA
+      object SuperA {
+        implicit def writer[Js] = Combine[Js, SuperA] {
+          case SpecificType  => SpecificType
+          case SpecificType2 => SpecificType2
+        }
+      }
+
+      sealed trait SuperB
+      object SuperB {
+        implicit def writer[Js] = Combine[Js, SuperB] {
+          case SpecificType => SpecificType
+        }
+      }
+
+      SuperA
+      SuperB
     }
   }
 }
