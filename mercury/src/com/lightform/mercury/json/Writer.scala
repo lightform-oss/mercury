@@ -26,7 +26,7 @@ object Writer extends LowPriorityWriters {
       writer.writeSome(a)
   }
 
-  def empty[Json, A]: Writer[Json, A] = _ => None
+  def empty[Json, A]: InvariantWriter[Json, A] = _ => None
 
   /**
     * Useful for combining several writers into one writer for a parent type.
@@ -41,9 +41,15 @@ object Writer extends LowPriorityWriters {
     import scala.language.implicitConversions
     case class Magnet[Json](js: Option[Json]) extends AnyVal
     object Magnet {
-      implicit def fromValueAndWriter[Json, A](a: A)(
-          implicit aWriter: Lazy[Writer[Json, A]]
+      implicit def fromValueAndInvariantWriter[Json, A](a: A)(
+          implicit aWriter: Lazy[InvariantWriter[Json, A]],
+          dummyImplicit: DummyImplicit
       ) = Magnet(aWriter.value.write(a))
+
+      implicit def fromValueWriterTuple[Json, A](tup: (Writer[Json, A], A)) =
+        Magnet(tup._1.write(tup._2))
+
+      implicit def fromJs[Json](maybeJs: Option[Json]) = Magnet(maybeJs)
     }
     def apply[Json, A](f: A => Magnet[Json]): Writer[Json, A] = a => f(a).js
   }
@@ -71,3 +77,13 @@ trait LowPriorityWriters {
 
   implicit def none[Json]: Writer[Json, None.type] = Writer.empty
 }
+
+// contravariant writers can be a mess, this can help when dealing with inheritance
+trait InvariantWriter[Json, A] extends Writer[Json, A]
+object InvariantWriter {
+  def fromWriter[Json, A](writer: Writer[Json, A]): InvariantWriter[Json, A] =
+    a => writer.write(a)
+}
+trait NonAbsentInvariantWriter[Json, A]
+    extends InvariantWriter[Json, A]
+    with NonAbsentWriter[Json, A]

@@ -43,7 +43,7 @@ package object pets {
   }
 
   case object NoSuchPet extends FeedPetError {
-    def writer[Js] = Writer.empty[Js, NoSuchPet.type]
+    implicit def writer[Js] = Writer.empty[Js, NoSuchPet.type]
     implicit def registry[Js] =
       ErrorRegistry[Js, NoSuchPet.type](Map(404 -> Reader.forObject(this)))
   }
