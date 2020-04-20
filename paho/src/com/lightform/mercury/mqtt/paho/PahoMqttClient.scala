@@ -18,24 +18,28 @@ import cats.implicits._
   * @tparam Json
   */
 class PahoMqttClient[Json] private (
-    val paho: IMqttAsyncClient,
-    transactionTimeout: FiniteDuration
+    private val paho: IMqttAsyncClient,
+    protected val defaultTimeout: FiniteDuration
 )(implicit ec: ExecutionContext, jsonSupport: JsonSupport[Json])
     extends Client[Future, Json]
     with TransportParams[Future, Json, MqttMessageCtx, MqttMessageCtx] {
 
   import jsonSupport._
 
-  def notify[P, TP](params: P, transportParams: TP)(
+  def notify[P, TP](params: P, transportParams: TP, timeout: FiniteDuration)(
       implicit method: NotificationMethodDefinition[P],
       paramWriter: Writer[Json, P],
       transportHint: ClientTransportRequestHint[TP, MqttMessageCtx]
   ) = {
     val request = generateRequest(params)
-    publish(request, transportParams).map(_ => ())
+    Timer.withTimeout(publish(request, transportParams).map(_ => ()), timeout)
   }
 
-  def transact[P, TP, E, R](params: P, transportParams: TP)(
+  def transact[P, TP, E, R](
+      params: P,
+      transportParams: TP,
+      timeout: FiniteDuration
+  )(
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
@@ -48,7 +52,7 @@ class PahoMqttClient[Json] private (
 
     val eventualResponse = {
       val (subscribeComplete, eventualReplyMessage) =
-        subscribeSingle(hint.topic, hint.qos, transactionTimeout)
+        subscribeSingle(hint.topic, hint.qos, timeout)
 
       val subscribedAndPublished = for {
         _ <- subscribeComplete
@@ -61,7 +65,12 @@ class PahoMqttClient[Json] private (
         .tryMap(jsonSupport.responseReader[E, R].read)
     }
 
-    eventualResponse.flatMap(_.toEitherF[Future])
+    eventualResponse
+      .recover {
+        case e: TimeoutException =>
+          ErrorResponse(UnexpectedError(-1, e.getMessage), request.id)
+      }
+      .flatMap(_.toEitherF[Future])
   }
 
   private def singleSubscribeListener(

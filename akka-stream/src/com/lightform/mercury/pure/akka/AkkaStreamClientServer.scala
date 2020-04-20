@@ -14,7 +14,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.collection.immutable.{IndexedSeq, Seq}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -26,7 +26,7 @@ class AkkaStreamClientServer[Json, CCtx](
     ] = Nil,
     parallelism: Int = ncores * 3,
     bufferSize: Int,
-    requestTimeout: FiniteDuration
+    val defaultTimeout: FiniteDuration
 )(
     implicit ec: ExecutionContext,
     mat: Materializer,
@@ -50,7 +50,7 @@ class AkkaStreamClientServer[Json, CCtx](
 
   val flow = Flow.fromSinkAndSourceMat(incoming, outSource)(Keep.left)
 
-  def transact[P, E, R](params: P)(
+  def transact[P, E, R](params: P, timeout: FiniteDuration)(
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
@@ -62,20 +62,28 @@ class AkkaStreamClientServer[Json, CCtx](
     val request = Request(method.method, params, Some(id))
     val requestJson = requestWriter[P].writeSome(request)
     enqueue(requestJson)
-    Timer.schedule(requestTimeout)(responseCompletions.remove(id))
-    Timer.withTimeout(
-      completion.promise.future.flatMap(_.toEitherF[Future]),
-      requestTimeout
-    )
+    Timer.schedule(timeout)(responseCompletions.remove(id))
+    val response = completion.promise.future
+    Timer
+      .withTimeout(
+        response,
+        timeout
+      )
+      .recover {
+        case e: TimeoutException =>
+          ErrorResponse(UnexpectedError(-1, e.getMessage), request.id)
+      }
+      .flatMap(_.toEitherF[Future])
   }
 
-  def notify[P](params: P)(
+  def notify[P](params: P, timeout: FiniteDuration)(
       implicit method: NotificationMethodDefinition[P],
       paramWriter: JsonWriter[P]
   ) = {
     val request = Request(method.method, params, None)
     val requestJson = requestWriter[P].writeSome(request)
-    enqueue(requestJson)
+    Timer.withTimeout(enqueue(requestJson), timeout)
+
   }
 
   private def onMessageReceived(jsonString: IndexedSeq[Byte]): Future[Unit] =

@@ -2,6 +2,8 @@ package com.lightform.mercury
 
 import com.lightform.mercury.json.{ErrorRegistry, Reader, Writer}
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
   * For the given request and transport parameters, provide a transport-specific
   * hint as to how the message should be sent.
@@ -31,7 +33,7 @@ sealed trait RequestMethods
 trait PureTransport[F[_], Json] extends RequestMethods {
   this: Client[F, Json] =>
 
-  def transact[P, E, R](params: P)(
+  def transact[P, E, R](params: P, timeout: FiniteDuration = defaultTimeout)(
       implicit
       method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
@@ -39,7 +41,7 @@ trait PureTransport[F[_], Json] extends RequestMethods {
       registry: JsonErrorRegistry[E]
   ): F[Either[E, R]]
 
-  def notify[P](params: P)(
+  def notify[P](params: P, timeout: FiniteDuration = defaultTimeout)(
       implicit
       method: NotificationMethodDefinition[P],
       paramWriter: JsonWriter[P]
@@ -51,7 +53,7 @@ trait NoTransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
   type ReqH = ClientTransportRequestHint[Unit, ReqHint]
   type ResH = ClientTransportResponseHint[Unit, ResHint]
 
-  def transact[P, E, R](params: P)(
+  def transact[P, E, R](params: P, timeout: FiniteDuration = defaultTimeout)(
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
@@ -59,7 +61,7 @@ trait NoTransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
       transportHint: ReqH
   ): F[Either[E, R]]
 
-  def notify[P](params: P)(
+  def notify[P](params: P, timeout: FiniteDuration = defaultTimeout)(
       implicit method: NotificationMethodDefinition[P],
       paramWriter: JsonWriter[P],
       transportHint: ReqH
@@ -71,7 +73,11 @@ trait TransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
   type ReqH[P] = ClientTransportRequestHint[P, ReqHint]
   type ResH[P] = ClientTransportResponseHint[P, ResHint]
 
-  def transact[P, TP, E, R](params: P, transportParams: TP)(
+  def transact[P, TP, E, R](
+      params: P,
+      transportParams: TP,
+      timeout: FiniteDuration = defaultTimeout
+  )(
       implicit method: IdMethodDefinition.Aux[P, E, R],
       paramWriter: JsonWriter[P],
       resultReader: JsonReader[R],
@@ -80,7 +86,11 @@ trait TransportParams[F[_], Json, ReqHint, ResHint] extends RequestMethods {
       transportResHint: ResH[TP]
   ): F[Either[E, R]]
 
-  def notify[P, TP](params: P, transportParams: TP)(
+  def notify[P, TP](
+      params: P,
+      transportParams: TP,
+      timeout: FiniteDuration = defaultTimeout
+  )(
       implicit method: NotificationMethodDefinition[P],
       paramWriter: JsonWriter[P],
       transportHint: ReqH[TP]
@@ -91,4 +101,6 @@ trait Client[F[_], Json] { this: RequestMethods =>
   type JsonWriter[A] = Writer[Json, A]
   type JsonReader[A] = Reader[Json, A]
   type JsonErrorRegistry[A] = ErrorRegistry[Json, A]
+
+  protected def defaultTimeout: FiniteDuration
 }
