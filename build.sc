@@ -2,8 +2,8 @@ import mill._, scalalib._, scalafmt._, publish._
 import mill.define.{Segment, Segments}
 import $ivy.`com.lihaoyi::mill-contrib-scoverage:$MILL_VERSION`
 
-val `2.12` = "2.12.10"
-val `2.13` = "2.13.1"
+val `2.12` = "2.12.11"
+val `2.13` = "2.13.2"
 
 object Dep {
   val slf4jSimple = ivy"org.slf4j:slf4j-simple:1.7.28"

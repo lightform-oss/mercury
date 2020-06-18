@@ -132,7 +132,7 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
             }
         )
 
-  implicit def errorWrites[E: Writes]: Writes[Error[E]] = {
+  implicit def errorWrites[E: Writes]: OWrites[Error[E]] = {
     case e: ExpectedError[E] => Json.writes[ExpectedError[E]].writes(e)
     case e: UnexpectedError =>
       val data = e.data.map(PlayJsonSupport.parse).map(_.get)
