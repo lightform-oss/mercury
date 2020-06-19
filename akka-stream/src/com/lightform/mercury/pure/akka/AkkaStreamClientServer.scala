@@ -67,12 +67,9 @@ class AkkaStreamClientServer[Json, CCtx](
     Timer
       .withTimeout(
         response,
-        timeout
+        timeout,
+        new RpcClientTimeoutException()
       )
-      .recover {
-        case e: TimeoutException =>
-          ErrorResponse(UnexpectedError(-1, e.getMessage), request.id)
-      }
       .flatMap(_.toEitherF[Future])
   }
 
@@ -82,8 +79,16 @@ class AkkaStreamClientServer[Json, CCtx](
   ) = {
     val request = Request(method.method, params, None)
     val requestJson = requestWriter[P].writeSome(request)
-    Timer.withTimeout(enqueue(requestJson), timeout)
-
+    Timer.withTimeout(
+      enqueue(requestJson),
+      timeout,
+      new TimeoutException(
+        """
+          |Unable to enqueue a message for sending in a timely manner.
+          |You  may need to increase buffer size.
+          |""".stripMargin.replace("\n", "")
+      )
+    )
   }
 
   private def onMessageReceived(jsonString: IndexedSeq[Byte]): Future[Unit] =

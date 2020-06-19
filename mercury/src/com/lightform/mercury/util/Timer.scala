@@ -1,9 +1,10 @@
 package com.lightform.mercury.util
 
+import java.util.concurrent.TimeoutException
 import java.util.{TimerTask, Timer => JTimer}
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 object Timer {
@@ -19,7 +20,11 @@ object Timer {
   }
 
   // credit http://justinhj.github.io/2017/07/16/future-with-timeout.html
-  def withTimeout[A](future: Future[A], timeout: FiniteDuration)(
+  def withTimeout[A](
+      future: Future[A],
+      timeout: FiniteDuration,
+      exception: => Throwable = new TimeoutException()
+  )(
       implicit ec: ExecutionContext
   ): Future[A] = {
 
@@ -27,9 +32,8 @@ object Timer {
     val promise = Promise[A]
 
     // and a Timer task to handle timing out
-
     val timerTask = new TimerTask() {
-      def run() = promise.tryFailure(new TimeoutException())
+      def run() = promise.tryFailure(exception)
     }
 
     // Set the timeout to check in the future

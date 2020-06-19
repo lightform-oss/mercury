@@ -65,12 +65,7 @@ class PahoMqttClient[Json] private (
         .tryMap(jsonSupport.responseReader[E, R].read)
     }
 
-    eventualResponse
-      .recover {
-        case e: TimeoutException =>
-          ErrorResponse(UnexpectedError(-1, e.getMessage), request.id)
-      }
-      .flatMap(_.toEitherF[Future])
+    eventualResponse.flatMap(_.toEitherF[Future])
   }
 
   private def singleSubscribeListener(
@@ -95,9 +90,11 @@ class PahoMqttClient[Json] private (
       }
     })
 
+    messagePromise.future
     Timer.withTimeout(
       messagePromise.future,
-      timeout
+      timeout,
+      new RpcClientTimeoutException()
     )
   }
 
