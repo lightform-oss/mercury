@@ -6,10 +6,11 @@ import com.lightform.mercury.json.playjson.PlayJsonSupport.{
   JsonReader,
   JsonWriter
 }
+import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json._
 
 import scala.collection.immutable.IndexedSeq
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object PlayJsonSupport extends PlayJsonSupport
 
@@ -87,7 +88,7 @@ trait PlayJsonSupport extends JsonSupport[JsValue] with PlayJsonDefinitions {
     (json \ "result").isDefined || (json \ "error").isDefined
 }
 
-trait PlayJsonDefinitions extends LowPriorityDefinitions {
+trait PlayJsonDefinitions extends LowPriorityDefinitions with LazyLogging {
   implicit val idFormat: Format[Either[String, Long]] =
     Format[Either[String, Long]](
       Reads[Either[String, Long]](
@@ -135,7 +136,20 @@ trait PlayJsonDefinitions extends LowPriorityDefinitions {
   implicit def errorWrites[E: Writes]: OWrites[Error[E]] = {
     case e: ExpectedError[E] => Json.writes[ExpectedError[E]].writes(e)
     case e: UnexpectedError =>
-      val data = e.data.map(PlayJsonSupport.parse).map(_.get)
+      val data = e.data.map(
+        bin =>
+          PlayJsonSupport.parse(bin) match {
+            case Success(js) => js
+            case Failure(e) =>
+              val strData = Try(new String(bin.toArray))
+              logger
+                .warn(s"Unable to parse unexpected error body as JSON${strData
+                  .map(s => s": `$s`")
+                  .getOrElse("")}", e)
+              JsString(strData.getOrElse(bin.toString))
+          }
+      )
+
       Json.obj(
         "code" -> e.code,
         "message" -> e.message,

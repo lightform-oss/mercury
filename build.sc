@@ -17,7 +17,7 @@ object Dep {
   val shapeless = ivy"com.chuusai::shapeless:2.3.3"
 }
 
-val developers = Seq(Developer("kag0", "Nathan Fischer", "https://github.com/kag0", Some("lightform"), Some("https://github.com/blackdoor")))
+val developers = Seq(Developer("kag0", "Nathan Fischer", "https://github.com/kag0", Some("lightform"), Some("https://github.com/lightform-oss")))
 
 trait SampleModule extends ScalaModule {
   def scalaVersion = "2.13.1"
