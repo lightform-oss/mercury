@@ -39,6 +39,7 @@ trait ServerSpec[Json]
   def appendNumToValsField(i: Int, json: Json): Json
 
   def emptyObject: Json
+  def emptyObjectWithEmptyArray: Json
 
   val helper = new HandlerHelper[Try, Json, Unit, Unit]
 
@@ -321,7 +322,6 @@ trait ServerSpec[Json]
 
   "Middleware" should {
     "run in order" in {
-
       val middlewareHandler = helper.notification(MiddlewareRequest) {
         case (MiddlewareRequest(vals), _, _) =>
           vals shouldEqual Seq(1, 2, 3)
@@ -355,14 +355,15 @@ trait ServerSpec[Json]
           jsonSupport.stringify(
             jsonSupport
               .requestWriter[Json]
-              .writeSome(Request(MiddlewareRequest.method, emptyObject, None))
+              .writeSome(Request(MiddlewareRequest.method, emptyObjectWithEmptyArray, None))
           ),
           (),
           ()
         )
         .success
         .value
-    }
+
+  }
   }
 }
 
@@ -383,21 +384,21 @@ object ServerSpec {
 
   case class HelloRequest(name: String)
   implicit object HelloRequest extends IdMethodDefinition[HelloRequest] {
-    type Result = String
+    type Result    = String
     type ErrorData = NameEmpty.type
 
     val method = "hello"
   }
 
   object HelloDie extends IdMethodDefinition[HelloRequest] {
-    type Result = String
+    type Result    = String
     type ErrorData = String
 
     val method = "die"
   }
 
   object HelloDieWorse extends IdMethodDefinition[HelloRequest] {
-    type Result = String
+    type Result    = String
     type ErrorData = String
 
     val method = "dieWorse"
@@ -405,7 +406,7 @@ object ServerSpec {
 
   object NoParams {
     implicit val definition = new IdMethodDefinition[NoParams.type] {
-      type Result = String
+      type Result    = String
       type ErrorData = None.type
 
       val method = "noParams"

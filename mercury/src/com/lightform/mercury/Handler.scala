@@ -89,7 +89,7 @@ class IdHandler[F[_]: Monad, P, +D <: IdMethodDefinition[P], Json, ConnectionCtx
                   UnexpectedError.fromData(
                     -32602,
                     "Invalid params",
-                    e.getMessage
+                    Option(e.getMessage)
                   ),
                   jsonRequest.id
                 )

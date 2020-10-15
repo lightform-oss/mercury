@@ -21,7 +21,7 @@ trait JsonSupport[Json] {
   implicit def stringWriter: NonAbsentWriter[Json, String]
   implicit def optionWriter[A](
       implicit writer: JsonWriter[A]
-  ): JsonWriter[Option[A]]
+  ): JsonWriter[Option[A]] = _.flatMap(writer.write)
 
   def requestWriter[P](
       implicit writer: JsonWriter[P]

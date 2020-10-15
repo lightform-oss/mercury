@@ -7,7 +7,7 @@
 [![GitHub](https://img.shields.io/github/license/lightform-oss/mercury?style=for-the-badge)](LICENCE.txt)
 [![Maven Central](https://img.shields.io/maven-central/v/com.lightform/mercury_2.13?style=for-the-badge)](https://mvnrepository.com/artifact/com.lightform/mercury)
 
-A modular [JSON-RPC 2.0](https://www.jsonrpc.org/specification) library that allows pluggable transport layers, JSON libraries, and effect/async monads.  
+A modular [JSON-RPC 2.0](https://www.jsonrpc.org/specification) library that allows pluggable transport layers, JSON libraries, and effect/async monads.
 Developed at [Lightform](https://lightform.com/) to communicate with embedded devices where the device is acting in the server role.
 
 This project has the following guiding goals:
@@ -20,7 +20,7 @@ This project has the following guiding goals:
 
 ## [Getting Started](GETTING_STARTED.md)
 
-If something you're looking for isn't listed below, click [here](CONTRIBUTING.md)!  
+If something you're looking for isn't listed below, click [here](CONTRIBUTING.md)!
 Feel free to open an issue with questions.
 
 ## Currently supported transports
@@ -31,4 +31,5 @@ Feel free to open an issue with questions.
 
 ## Currently supported JSON libraries
 
+* [ninny](ninny)
 * [Play JSON](play-json)
