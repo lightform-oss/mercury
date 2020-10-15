@@ -97,7 +97,7 @@ class AkkaStreamClientServer[Json, CCtx](
       case Success(json)                         => onRequestReceived(json)
       case Failure(e) =>
         val response = ErrorResponse(
-          UnexpectedError.fromData(-32700, "Parse error", e.getMessage),
+          UnexpectedError.fromData(-32700, "Parse error", Option(e.getMessage)),
           None
         )
 

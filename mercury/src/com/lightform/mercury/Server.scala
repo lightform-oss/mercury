@@ -26,7 +26,7 @@ object ServerTransportHint {
 
 abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hint: ServerTransportHint, CCtx, RCtx]
     extends LazyLogging {
-  private val jsonSupport = implicitly[JsonSupport[Json]]
+  private val jsonSupport   = implicitly[JsonSupport[Json]]
   private val transportHint = implicitly[ServerTransportHint[Hint]]
 
   import jsonSupport._
@@ -61,7 +61,7 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
             UnexpectedError.fromData(
               -32600,
               "Invalid Request",
-              e.getMessage
+              Option(e.getMessage)
             ),
             idLens(json)
           )
@@ -127,7 +127,7 @@ abstract class Server[F[+_]: MonadException: Applicative, Json: JsonSupport, Hin
               UnexpectedError.fromData(
                 -32700,
                 "Parse error",
-                e.getMessage
+                Option(e.getMessage)
               ),
               None
             )

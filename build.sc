@@ -14,7 +14,8 @@ object Dep {
   val scalaLogging = ivy"com.typesafe.scala-logging::scala-logging:3.9.2"
   val collectionCompat = ivy"org.scala-lang.modules::scala-collection-compat:2.1.2"
   val playJson = ivy"com.typesafe.play::play-json:2.7.4"
-  val shapeless = ivy"com.chuusai::shapeless:2.3.3"
+	val shapeless = ivy"com.chuusai::shapeless:2.3.3"
+	val ninny = ivy"io.github.kag0::ninny:0.2.1"
 }
 
 val developers = Seq(Developer("kag0", "Nathan Fischer", "https://github.com/kag0", Some("lightform"), Some("https://github.com/lightform-oss")))
@@ -79,6 +80,22 @@ class PlayJsonModule(val crossScalaVersion: String) extends BaseModule with Publ
 
   def moduleDeps = Seq(mercury(crossScalaVersion))
   def ivyDeps = Agg(Dep.playJson)
+
+  object test extends TestBase {
+    def moduleDeps = super.moduleDeps :+ mercury(crossScalaVersion).test
+  }
+}
+
+object ninny extends Cross[NinnyModule](`2.12`, `2.13`)
+class NinnyModule(val crossScalaVersion: String) extends BaseModule with PublishModule {
+
+  def artifactName = s"${mercury(crossScalaVersion).artifactName()}-${super.artifactName()}"
+  def pomSettings = mercury(crossScalaVersion)
+    .pomSettings()
+    .copy(description = "ninny JSON support for Lightform mercury")
+
+  def moduleDeps = Seq(mercury(crossScalaVersion))
+  def ivyDeps = Agg(Dep.ninny, Dep.collectionCompat)
 
   object test extends TestBase {
     def moduleDeps = super.moduleDeps :+ mercury(crossScalaVersion).test
